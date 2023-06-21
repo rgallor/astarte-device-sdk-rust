@@ -29,7 +29,7 @@ flate2 = "1.0.26"
 http = "0.2.9"
 itertools = "0.10.5"
 log = "0.4.18"
-openssl = { version = "0.10.54", features = ["vendored"] }
+openssl = { version = "0.10.55", features = ["vendored"] }
 reqwest = { version = "0.11.18", features = ["json"] }
 rumqttc = "0.21.0"
 rustls = { version = "0.20.8", features = ["dangerous_configuration"] }
