@@ -153,15 +153,14 @@ impl Grpc {
             .map_err(GrpcError::from)
     }
 
-    async fn detach(
-        mut client: MessageHubClientWithInterceptor,
-        uuid: &Uuid,
-    ) -> Result<(), GrpcError> {
+    async fn detach(mut client: MessageHubClientWithInterceptor) -> Result<(), GrpcError> {
         // During the detach phase only the uuid is needed we can pass an empty array
         // as the interface_json since the interfaces are already known to the message hub
         // this api will change in the future
         client
-            .detach(Node::new(uuid, Vec::new()))
+            .detach(tonic::Request::new(
+                astarte_message_hub_proto::pbjson_types::Empty {},
+            ))
             .await
             .map(|_| ())
             .map_err(GrpcError::from)
@@ -362,9 +361,9 @@ impl Register for Grpc {
 #[async_trait]
 impl Disconnect for Grpc {
     async fn disconnect(mut self) -> Result<(), crate::Error> {
-        Self::detach(self.client, &self.uuid)
-            .await
-            .map_err(|e| e.into())
+        debug!("detaching node {}", self.uuid);
+
+        Self::detach(self.client).await.map_err(|e| e.into())
     }
 }
 
@@ -478,7 +477,7 @@ mod test {
     enum ServerReceivedRequest {
         Attach(Node),
         Send(AstarteMessage),
-        Detach(Node),
+        Detach(astarte_message_hub_proto::pbjson_types::Empty),
         AddInterfaces(InterfacesJson),
         RemoveInterfaces(InterfacesName),
     }
@@ -545,13 +544,12 @@ mod test {
 
         async fn detach(
             &self,
-            request: tonic::Request<Node>,
+            _request: tonic::Request<astarte_message_hub_proto::pbjson_types::Empty>,
         ) -> Result<tonic::Response<astarte_message_hub_proto::pbjson_types::Empty>, tonic::Status>
         {
-            let inner = request.into_inner();
-            println!("Client '{}' detached", inner.uuid.clone());
+            println!("Client detached");
 
-            self.server_received.send(ServerReceivedRequest::Detach(inner)).await
+            self.server_received.send(ServerReceivedRequest::Detach(astarte_message_hub_proto::pbjson_types::Empty{})).await
                 .expect("Could not send notification of a server received message, connect a channel to the Receiver");
 
             Ok(tonic::Response::new(
@@ -742,7 +740,7 @@ mod test {
 
         expect_messages!(channels.server_request_receiver.try_recv();
             ServerReceivedRequest::Attach(a) if a.uuid == ID.to_string(),
-            ServerReceivedRequest::Detach(a) if a.uuid == ID.to_string()
+            ServerReceivedRequest::Detach(a) if a == astarte_message_hub_proto::pbjson_types::Empty{}
         );
     }
 
@@ -811,7 +809,7 @@ mod test {
             ServerReceivedRequest::Attach(a) if a.uuid == ID.to_string(),
             // second error attach
             ServerReceivedRequest::Attach(a) if a.uuid == ID.to_string(),
-            ServerReceivedRequest::Detach(a) if a.uuid == ID.to_string()
+            ServerReceivedRequest::Detach(a) if a == astarte_message_hub_proto::pbjson_types::Empty{}
         );
     }
 
@@ -906,7 +904,7 @@ mod test {
             => ordered = {i.names.sort(); i.names} ;
                 if ordered == expect_removed,
             // detach
-            ServerReceivedRequest::Detach(a) if a.uuid == ID.to_string()
+            ServerReceivedRequest::Detach(a) if a == astarte_message_hub_proto::pbjson_types::Empty{}
         );
     }
 
@@ -965,7 +963,7 @@ mod test {
                 if data_event.interface == "org.astarte-platform.rust.examples.individual-properties.DeviceProperties"
                 && data_event.path == "/1/name"
                 && matches!(data_event.data, Value::Individual(AstarteType::String(v)) if v == STRING_VALUE),
-            ServerReceivedRequest::Detach(d) if d.uuid == ID.to_string()
+            ServerReceivedRequest::Detach(a) if a == astarte_message_hub_proto::pbjson_types::Empty{}
         );
     }
 
