@@ -36,11 +36,11 @@ use astarte_message_hub_proto::tonic::transport::{Channel, Endpoint};
 use astarte_message_hub_proto::tonic::{Request, Status};
 use astarte_message_hub_proto::{
     astarte_message::Payload as ProtoPayload, message_hub_client::MessageHubClient,
-    pbjson_types::Empty, tonic, AstarteMessage, InterfacesJson, InterfacesName, Node,
+    pbjson_types::Empty, tonic, AstarteMessageResult, InterfacesJson, InterfacesName, Node,
 };
 use async_trait::async_trait;
 use bytes::Bytes;
-use log::{debug, trace};
+use log::{debug, error, trace, warn};
 use sync_wrapper::SyncWrapper;
 use uuid::Uuid;
 
@@ -118,13 +118,13 @@ impl Interceptor for NodeIdInterceptor {
 pub struct Grpc {
     uuid: Uuid,
     client: MessageHubClientWithInterceptor,
-    stream: SyncWrapper<tonic::codec::Streaming<AstarteMessage>>,
+    stream: SyncWrapper<tonic::codec::Streaming<AstarteMessageResult>>,
 }
 
 impl Grpc {
     pub(crate) fn new(
         client: MessageHubClientWithInterceptor,
-        stream: tonic::codec::Streaming<AstarteMessage>,
+        stream: tonic::codec::Streaming<AstarteMessageResult>,
         uuid: Uuid,
     ) -> Self {
         Self {
@@ -138,14 +138,14 @@ impl Grpc {
     ///
     /// An [`Option`] is returned directly from the [`tonic::codec::Streaming::message`] method.
     /// A result of [`None`] signals a disconnection and should be handled by the caller
-    async fn next_message(&mut self) -> Result<Option<AstarteMessage>, tonic::Status> {
+    async fn next_message(&mut self) -> Result<Option<AstarteMessageResult>, tonic::Status> {
         self.stream.get_mut().message().await
     }
 
     async fn attach(
         client: &mut MessageHubClientWithInterceptor,
         data: NodeData,
-    ) -> Result<tonic::codec::Streaming<AstarteMessage>, GrpcError> {
+    ) -> Result<tonic::codec::Streaming<AstarteMessageResult>, GrpcError> {
         client
             .attach(tonic::Request::new(data.node))
             .await
@@ -214,7 +214,27 @@ impl Receive for Grpc {
     {
         loop {
             match self.next_message().await {
-                Ok(Some(message)) => {
+                Ok(Some(message_res)) => {
+                    // log message hub proto errors
+                    let Some(res) = message_res.result else {
+                        warn!("empty AstarteMessageResult should never occur");
+                        // wait for the next astarte message
+                        continue;
+                    };
+
+                    let message = match res {
+                        astarte_message_hub_proto::astarte_message_result::Result::Message(msg) => {
+                            msg
+                        }
+                        astarte_message_hub_proto::astarte_message_result::Result::Error(
+                            proto_err,
+                        ) => {
+                            error!("message hub proto error: {proto_err:?}");
+                            // TODO: understand what to do in cas of msg hub error
+                            continue;
+                        }
+                    };
+
                     let event: ReceivedEvent<Self::Payload> = message
                         .try_into()
                         .map_err(GrpcError::MessageHubProtoConversion)?;
@@ -453,7 +473,7 @@ mod test {
 
     use astarte_message_hub_proto::{
         message_hub_server::{MessageHub, MessageHubServer},
-        AstarteUnset,
+        AstarteMessage, AstarteUnset,
     };
     use async_trait::async_trait;
     use tokio::{
@@ -480,7 +500,7 @@ mod test {
         RemoveInterfaces(InterfacesName),
     }
 
-    type ServerSenderValuesVec = Vec<Result<AstarteMessage, tonic::Status>>;
+    type ServerSenderValuesVec = Vec<Result<AstarteMessageResult, tonic::Status>>;
 
     pub(crate) struct TestMessageHubServer {
         /// This stream can be used to send test events that will be handled by the astarte device sdk code
@@ -495,7 +515,7 @@ mod test {
 
     impl TestMessageHubServer {
         fn new(
-            server_send: mpsc::Receiver<Vec<Result<AstarteMessage, tonic::Status>>>,
+            server_send: mpsc::Receiver<Vec<Result<AstarteMessageResult, tonic::Status>>>,
             server_received: mpsc::Sender<ServerReceivedRequest>,
         ) -> Self {
             Self {
@@ -508,7 +528,7 @@ mod test {
     #[async_trait]
     impl MessageHub for TestMessageHubServer {
         type AttachStream =
-            futures::stream::Iter<std::vec::IntoIter<Result<AstarteMessage, tonic::Status>>>;
+            futures::stream::Iter<std::vec::IntoIter<Result<AstarteMessageResult, tonic::Status>>>;
 
         async fn attach(
             &self,
@@ -638,7 +658,7 @@ mod test {
     }
 
     struct TestServerChannels {
-        server_response_sender: mpsc::Sender<Vec<Result<AstarteMessage, tonic::Status>>>,
+        server_response_sender: mpsc::Sender<Vec<Result<AstarteMessageResult, tonic::Status>>>,
         server_request_receiver: mpsc::Receiver<ServerReceivedRequest>,
     }
 
@@ -1043,7 +1063,7 @@ mod test {
         // Send object from server
         channels
             .server_response_sender
-            .send(vec![Ok(astarte_message)])
+            .send(vec![Ok(astarte_message.into())])
             .await
             .unwrap();
 
@@ -1105,7 +1125,7 @@ mod test {
         // Send object from server
         channels
             .server_response_sender
-            .send(vec![Ok(astarte_message)])
+            .send(vec![Ok(astarte_message.into())])
             .await
             .unwrap();
 
