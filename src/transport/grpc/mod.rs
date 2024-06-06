@@ -471,10 +471,7 @@ impl NodeData {
 mod test {
     use std::{future::Future, net::SocketAddr, str::FromStr};
 
-    use astarte_message_hub_proto::{
-        message_hub_server::{MessageHub, MessageHubServer},
-        AstarteMessage, AstarteUnset,
-    };
+    use astarte_message_hub_proto::{message_hub_server::{MessageHub, MessageHubServer}, AstarteMessage, AstarteUnset, MessageHubResult};
     use async_trait::async_trait;
     use tokio::{
         net::TcpListener,
@@ -550,41 +547,41 @@ mod test {
         async fn send(
             &self,
             request: tonic::Request<AstarteMessage>,
-        ) -> Result<tonic::Response<Empty>, tonic::Status> {
+        ) -> Result<tonic::Response<MessageHubResult>, tonic::Status> {
             self.server_received.send(ServerReceivedRequest::Send(request.into_inner())).await
                 .expect("Could not send notification of a server received message, connect a channel to the Receiver");
 
-            Ok(tonic::Response::new(Empty::default()))
+            Ok(tonic::Response::new(MessageHubResult::empty()))
         }
 
         async fn detach(
             &self,
             _request: tonic::Request<Empty>,
-        ) -> Result<tonic::Response<Empty>, tonic::Status> {
+        ) -> Result<tonic::Response<MessageHubResult>, tonic::Status> {
             println!("Client detached");
 
             self.server_received.send(ServerReceivedRequest::Detach(Empty{})).await
                 .expect("Could not send notification of a server received message, connect a channel to the Receiver");
 
-            Ok(tonic::Response::new(Empty::default()))
+            Ok(tonic::Response::new(MessageHubResult::empty()))
         }
 
         async fn add_interfaces(
             &self,
             request: tonic::Request<InterfacesJson>,
-        ) -> Result<tonic::Response<Empty>, Status> {
+        ) -> Result<tonic::Response<MessageHubResult>, Status> {
             self.server_received.send(ServerReceivedRequest::AddInterfaces(request.into_inner())).await.expect("Could not send notification of a server received message, connect a channel to the Receiver");
 
-            Ok(tonic::Response::new(Empty::default()))
+            Ok(tonic::Response::new(MessageHubResult::empty()))
         }
 
         async fn remove_interfaces(
             &self,
             request: tonic::Request<InterfacesName>,
-        ) -> Result<tonic::Response<Empty>, Status> {
+        ) -> Result<tonic::Response<MessageHubResult>, Status> {
             self.server_received.send(ServerReceivedRequest::RemoveInterfaces(request.into_inner())).await.expect("Could not send notification of a server received message, connect a channel to the Receiver");
 
-            Ok(tonic::Response::new(Empty::default()))
+            Ok(tonic::Response::new(MessageHubResult::empty()))
         }
     }
 
