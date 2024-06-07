@@ -230,7 +230,10 @@ impl Receive for Grpc {
                             proto_err,
                         ) => {
                             error!("message hub proto error: {proto_err:?}");
-                            // TODO: understand what to do in cas of msg hub error
+                            // TODO: understand what to do in case of msg hub error.
+                            //       For instance, if the MsgHub got disconnected from Astarte, the
+                            //       node could remain connected to the MsgHub and wait for the next
+                            //       message once the connection is re-established.
                             continue;
                         }
                     };
