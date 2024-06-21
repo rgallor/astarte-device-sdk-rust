@@ -226,7 +226,6 @@ impl Receive for Grpc {
                         astarte_message_hub_proto::message_hub_event::Event::Message(msg) => msg,
                         astarte_message_hub_proto::message_hub_event::Event::Error(proto_err) => {
                             error!("message hub proto error: {proto_err:?}");
-                            // TODO: understand what to do in case of msg hub error
                             continue;
                         }
                     };
@@ -732,6 +731,66 @@ mod test {
                 .unwrap();
 
             // manually calling detach
+            connection.disconnect().await.unwrap();
+        };
+
+        tokio::select! {
+            _ = server_future => panic!("The server closed before the client could complete sending the data"),
+            _ = client_operations => println!("Client sent its data"),
+        }
+
+        expect_messages!(channels.server_request_receiver.try_recv();
+            ServerReceivedRequest::Attach(a) if a.uuid == ID.to_string(),
+            ServerReceivedRequest::Detach(_),
+        );
+    }
+
+    #[tokio::test]
+    async fn test_send_message_hub_event_error() {
+        let (server_impl, mut channels) = build_test_message_hub_server();
+        let (server_future, client_future) = mock_grpc_actors(server_impl)
+            .await
+            .expect("Could not construct test client and server");
+
+        // send a generic error on a message hub event that the server will receive, followed by a
+        // correct message. The error will be logged and then the Node will handle the correct
+        // astarte message.
+        let expected_object = Value::Object((MockObject {}).astarte_aggregate().unwrap());
+        let proto_payload: astarte_message_hub_proto::astarte_message::Payload =
+            expected_object.into();
+        let astarte_message = AstarteMessage {
+            interface_name: "org.astarte-platform.rust.examples.object-datastream.DeviceDatastream"
+                .to_string(),
+            path: "/1".to_string(),
+            timestamp: None,
+            payload: Some(proto_payload.clone()),
+        };
+        channels
+            .server_response_sender
+            .send(vec![
+                Ok(MessageHubEvent::from_error(&Error::Grpc(
+                    GrpcError::DeserializationExpectedIndividual,
+                ))),
+                Ok(MessageHubEvent::from(astarte_message)),
+            ])
+            .await
+            .unwrap();
+
+        let client_operations = async move {
+            let client = client_future.await;
+
+            let mut connection = mock_astarte_grpc_client(client, &Interfaces::new())
+                .await
+                .unwrap();
+
+            // send a MessageHubEvent::Error followed by a MessageHubEvent::Message.
+            // the error should be printed with logging and then everything should proceed as normal
+            let interfaces = Interfaces::new();
+            let store = StoreWrapper::new(MemoryStore::new());
+            let Ok(_) = connection.next_event(&interfaces, &store).await else {
+                panic!("next_event failed");
+            };
+
             connection.disconnect().await.unwrap();
         };
 
