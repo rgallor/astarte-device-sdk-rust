@@ -29,7 +29,7 @@ use rustls::{
     pki_types::{CertificateDer, PrivatePkcs8KeyDer},
     RootCertStore,
 };
-use tracing::{debug, error, warn};
+use tracing::{debug, error, instrument, warn};
 
 use crate::transport::mqtt::PairingError;
 
@@ -127,10 +127,28 @@ impl ClientAuth {
     }
 }
 
+#[cfg(feature = "webpki")]
+#[instrument]
 async fn read_root_cert_store() -> Result<RootCertStore, PairingError> {
+    warn!("reading root cert store from webpki");
+
+    let root_cert_store = RootCertStore {
+        roots: webpki_roots::TLS_SERVER_ROOTS.to_vec(),
+    };
+
+    Ok(root_cert_store)
+}
+
+#[cfg(not(feature = "webpki"))]
+#[instrument]
+async fn read_root_cert_store() -> Result<RootCertStore, PairingError> {
+    debug!("reading root cert store from native certs");
+
     tokio::task::spawn_blocking(|| {
+
         let mut root_cert_store = RootCertStore::empty();
 
+        #[cfg(not(feature = "webpki"))]
         let native_certs =
             rustls_native_certs::load_native_certs().map_err(PairingError::Native)?;
 
