@@ -1,6 +1,6 @@
 {
-    "realm": "Realm name",
-    "device_id": "Device ID",
-    "credentials_secret": "Credentials secret",
-    "pairing_url": "Pairing URL"
+  "realm": "webpki",
+  "device_id": "2TBn-jNESuuHamE2Zo1anA",
+  "credentials_secret": "4NZsnp0lGZngELS6+pCLLrR29dOLqvPBl4Y08E+Jo30=",
+  "pairing_url": "https://api.eu1.astarte.cloud/pairing"
 }

@@ -28,7 +28,7 @@ use std::{
 use rumqttc::{MqttOptions, NetworkOptions, Transport};
 use serde::{Deserialize, Serialize};
 use tokio::fs;
-use tracing::debug;
+use tracing::{debug, instrument};
 use url::Url;
 
 use crate::{
@@ -387,6 +387,7 @@ where
     type Conn = Mqtt<S>;
     type Err = Error;
 
+    #[instrument(skip_all)]
     async fn connect<C>(
         mut self,
         builder: &DeviceBuilder<S, C>,

@@ -107,7 +107,9 @@ impl ClientAuth {
         Ok(Some(ClientAuth { private_key, certs }))
     }
 
+    #[instrument(skip_all)]
     pub(crate) async fn tls_config(self) -> Result<rustls::ClientConfig, PairingError> {
+        warn!("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
         let roots = read_root_cert_store().await?;
 
         rustls::ClientConfig::builder()
@@ -148,7 +150,6 @@ async fn read_root_cert_store() -> Result<RootCertStore, PairingError> {
 
         let mut root_cert_store = RootCertStore::empty();
 
-        #[cfg(not(feature = "webpki"))]
         let native_certs =
             rustls_native_certs::load_native_certs().map_err(PairingError::Native)?;
 

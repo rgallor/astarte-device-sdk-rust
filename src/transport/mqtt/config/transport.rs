@@ -21,7 +21,7 @@ use std::{path::PathBuf, sync::Arc};
 use rumqttc::Transport;
 use rustls::pki_types::PrivatePkcs8KeyDer;
 use tokio::fs;
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, instrument, warn};
 use url::Url;
 
 use crate::{
@@ -103,10 +103,14 @@ impl TransportProvider {
     }
 
     /// Config the TLS for the transport.
+    #[instrument(skip_all)]
     async fn config_transport(&self, client_auth: ClientAuth) -> Result<Transport, PairingError> {
         let config = if self.insecure_ssl {
+            warn!("CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC");
+
             client_auth.insecure_tls_config().await?
         } else {
+            warn!("BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB");
             client_auth.tls_config().await?
         };
 
@@ -157,16 +161,20 @@ impl TransportProvider {
     }
 
     /// Create a new transport with the given credentials
+    #[instrument(skip_all)]
     pub(crate) async fn transport(
         &self,
         client: &ApiClient<'_>,
     ) -> Result<Transport, PairingError> {
         let client_auth = self.retrieve_credentials(client).await?;
 
+        warn!("DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD");
+
         self.config_transport(client_auth).await
     }
 
     /// Create a new transport, including the creation of new credentials.
+    #[instrument(skip_all)]
     pub(crate) async fn recreate_transport(
         &self,
         client: &ApiClient<'_>,

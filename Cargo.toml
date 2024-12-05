@@ -54,6 +54,7 @@ base64 = { workspace = true }
 bson = { workspace = true, features = ["chrono-0_4"] }
 bytes = { workspace = true }
 chrono = { workspace = true, features = ["serde"] }
+color-eyre = "0.6.3"
 flate2 = { workspace = true }
 flume = { workspace = true, features = ["async"] }
 futures = { workspace = true }
@@ -74,6 +75,7 @@ sync_wrapper = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["parking_lot", "macros", "fs"] }
 tracing = { workspace = true }
+tracing-subscriber = "0.3.19"
 url = { workspace = true, features = ["serde"] }
 uuid = { workspace = true, features = ["v4", "v5"] }
 webpki-roots = { workspace = true, optional = true }

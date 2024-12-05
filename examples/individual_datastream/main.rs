@@ -19,7 +19,7 @@
  */
 
 use std::time::{Duration, SystemTime};
-
+use color_eyre::eyre::WrapErr;
 use serde::Deserialize;
 
 use astarte_device_sdk::{
@@ -28,6 +28,9 @@ use astarte_device_sdk::{
 };
 use tokio::task::JoinSet;
 use tracing::error;
+use tracing_subscriber::{fmt, EnvFilter};
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;
 
 type DynError = Box<dyn std::error::Error + Send + Sync + 'static>;
 
@@ -41,6 +44,18 @@ struct Config {
 
 #[tokio::main]
 async fn main() -> Result<(), DynError> {
+    color_eyre::install()?;
+
+    let filter = EnvFilter::builder()
+        .with_default_directive("stream_rust_test=debug".parse()?)
+        .from_env()
+        .wrap_err("failed to set debug filter")?;
+
+    tracing_subscriber::registry()
+        .with(fmt::layer())
+        .with(filter)
+        .init();
+
     env_logger::init();
     let now = SystemTime::now();
 
@@ -55,7 +70,7 @@ async fn main() -> Result<(), DynError> {
         &cfg.credentials_secret,
         &cfg.pairing_url,
     );
-    mqtt_config.ignore_ssl_errors();
+    //mqtt_config.ignore_ssl_errors();
 
     let (client, connection) = DeviceBuilder::new()
         .store(MemoryStore::new())
