@@ -25,6 +25,7 @@
 //! receiving, and registering interfaces.
 
 pub mod convert;
+pub mod types;
 
 use std::borrow::Borrow;
 use std::collections::HashMap;
@@ -890,7 +891,8 @@ mod test {
 
     use astarte_message_hub_proto::{
         message_hub_server::{MessageHub, MessageHubServer},
-        AstarteMessage, AstarteUnset, Property, StoredProperties,
+        AstarteMessage, AstarteUnset, Property, PropertyIdentifier, StoredProperties,
+        StoredPropertiesFilter,
     };
     use async_trait::async_trait;
     use tokio::{
@@ -899,6 +901,7 @@ mod test {
     };
     use uuid::uuid;
 
+    use super::*;
     use crate::{
         builder::DEFAULT_VOLATILE_CAPACITY,
         store::memory::MemoryStore,
@@ -906,8 +909,6 @@ mod test {
         transport::ReceivedEvent,
         AstarteAggregate, DeviceEvent, Value,
     };
-
-    use super::*;
 
     const ID: Uuid = uuid!("67e55044-10b1-426f-9247-bb680e5fe0c8");
 
@@ -918,6 +919,9 @@ mod test {
         Detach(Empty),
         AddInterfaces(InterfacesJson),
         RemoveInterfaces(InterfacesName),
+        GetProperties(InterfacesName),
+        GetAllProperties(StoredPropertiesFilter),
+        GetProperty(PropertyIdentifier),
     }
 
     type ServerSenderValuesVec = Vec<Result<MessageHubEvent, tonic::Status>>;
@@ -1029,22 +1033,31 @@ mod test {
 
         async fn get_properties(
             &self,
-            _request: Request<InterfacesName>,
+            request: Request<InterfacesName>,
         ) -> Result<tonic::Response<StoredProperties>, Status> {
+            self.server_received.send(ServerReceivedRequest::GetProperties(request.into_inner())).await
+                .expect("Could not send notification of a server received message, connect a channel to the Receiver");
+
             todo!()
         }
 
         async fn get_all_properties(
             &self,
-            _request: Request<StoredPropertiesFilter>,
+            request: Request<StoredPropertiesFilter>,
         ) -> Result<tonic::Response<StoredProperties>, Status> {
+            self.server_received.send(ServerReceivedRequest::GetAllProperties(request.into_inner())).await
+                .expect("Could not send notification of a server received message, connect a channel to the Receiver");
+
             todo!()
         }
 
         async fn get_property(
             &self,
-            _request: Request<PropertyIdentifier>,
+            request: Request<PropertyIdentifier>,
         ) -> Result<tonic::Response<Property>, Status> {
+            self.server_received.send(ServerReceivedRequest::GetProperty(request.into_inner())).await
+                .expect("Could not send notification of a server received message, connect a channel to the Receiver");
+
             todo!()
         }
     }
@@ -1385,6 +1398,67 @@ mod test {
                 if ordered == expect_removed,
             // detach
             ServerReceivedRequest::Detach(Empty {}),
+        );
+    }
+
+    #[tokio::test]
+    async fn test_retrieve_properties() {
+        let (server_impl, mut channels) = build_test_message_hub_server();
+        let (server_future, client_future) = mock_grpc_actors(server_impl)
+            .await
+            .expect("Could not construct test client and server");
+
+        const INTERFACE_NAME: &str =
+            "org.astarte-platform.rust.examples.individual-properties.DeviceProperties";
+        const STRING_VALUE: &str = "value";
+
+        // TODO: insert the return values of get_property/get_properties/get_all_properties in the vec
+        //  Problem: the channel can transfer only MessageHubEvent data types
+        // no messages are read as responses by the server so we pass an empty vec
+        channels.server_response_sender.send(vec![]).await.unwrap();
+
+        let client_operations = async move {
+            let client = client_future.await;
+
+            let path = MappingPath::try_from("/1/name").unwrap();
+            let interfaces =
+                Interfaces::from_iter([
+                    Interface::from_str(crate::test::DEVICE_PROPERTIES).unwrap()
+                ]);
+            let mapping_ref = interfaces.interface_mapping(INTERFACE_NAME, &path).unwrap();
+
+            let (mut client, _connection) =
+                mock_astarte_grpc_client(client, &interfaces).await.unwrap();
+
+            let validated_individual = mock_validate_individual(
+                mapping_ref,
+                &path,
+                AstarteType::String(STRING_VALUE.to_string()),
+                None,
+            )
+            .unwrap();
+
+            client.send_individual(validated_individual).await.unwrap();
+
+            // TODO: use here the msghub client methods to retrieve properties
+
+            client.disconnect().await.unwrap();
+        };
+
+        // Poll client and server future
+        tokio::select! {
+            _ = server_future => panic!("The server closed before the client could complete sending the data"),
+            _ = client_operations => println!("Client sent its data"),
+        }
+
+        expect_messages!(channels.server_request_receiver.try_recv();
+            ServerReceivedRequest::Attach((id, _)) if id == ID,
+            ServerReceivedRequest::Send(m)
+            => data_event = DeviceEvent::try_from(m).expect("Malformed message");
+                if data_event.interface == "org.astarte-platform.rust.examples.individual-properties.DeviceProperties"
+                && data_event.path == "/1/name"
+                && matches!(data_event.data, Value::Individual(AstarteType::String(v)) if v == STRING_VALUE),
+            ServerReceivedRequest::Detach(_),
         );
     }
 
