@@ -276,6 +276,7 @@ mod test {
     use astarte_message_hub_proto::InterfacesName;
     use astarte_message_hub_proto::PropertyIdentifier;
     use astarte_message_hub_proto::StoredPropertiesFilter;
+    use uuid::Uuid;
 
     use super::GrpcStore;
     use super::PropertyStore;
@@ -285,7 +286,6 @@ mod test {
     use crate::transport::grpc::test::build_test_message_hub_server;
     use crate::transport::grpc::test::expect_messages;
     use crate::transport::grpc::test::ServerReceivedRequest;
-    use crate::transport::grpc::test::ID;
     use crate::transport::Disconnect;
     use crate::Interface;
     use crate::{
@@ -295,6 +295,8 @@ mod test {
             Interfaces,
         },
     };
+
+    const ID: Uuid = uuid::uuid!("67e55044-10b1-426f-9247-bb680e5fe0c8");
 
     #[tokio::test]
     async fn test_grpc_store_grpc_client_calls() {
