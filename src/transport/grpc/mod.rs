@@ -649,6 +649,7 @@ mod test {
     };
     use uuid::uuid;
 
+    use super::*;
     use crate::{
         builder::DEFAULT_VOLATILE_CAPACITY,
         store::memory::MemoryStore,
@@ -658,8 +659,6 @@ mod test {
         },
         AstarteAggregate, DeviceEvent, Value,
     };
-
-    use super::*;
 
     pub(crate) const ID: Uuid = uuid!("67e55044-10b1-426f-9247-bb680e5fe0c8");
 

@@ -30,6 +30,7 @@ use astarte_message_hub_proto::{AstarteDatastreamInidividual, MessageHubEvent};
 use chrono::TimeZone;
 use itertools::Itertools;
 
+use super::{GrpcError, GrpcPayload};
 use crate::interface::Ownership;
 use crate::store::StoredProp;
 use crate::validate::ValidatedUnset;
@@ -38,8 +39,6 @@ use crate::{
     validate::ValidatedObject,
 };
 use crate::{DeviceEvent, Value};
-
-use super::{GrpcError, GrpcPayload};
 
 /// Error returned by the Message Hub types conversions.
 #[non_exhaustive]
@@ -105,12 +104,65 @@ pub(crate) fn map_set_stored_properties(
         .try_collect()
 }
 
+/// Map a list of stored properties to , unset value will result in an error of the conversion
+pub fn map_stored_properties_to_proto(
+    props: Vec<StoredProp>,
+) -> astarte_message_hub_proto::StoredProperties {
+    let interface_properties =
+        props
+            .into_iter()
+            .fold(HashMap::new(), |mut interface_properties, prop| {
+                let entry_prop = interface_properties
+                    .entry(prop.interface)
+                    .or_insert_with(|| astarte_message_hub_proto::InterfaceProperties {
+                        ownership: astarte_message_hub_proto::Ownership::from(prop.ownership)
+                            as i32,
+                        version_major: prop.interface_major,
+                        properties: vec![],
+                    });
+
+                let property = astarte_message_hub_proto::Property {
+                    path: prop.path,
+                    data: Some(astarte_message_hub_proto::AstarteData {
+                        astarte_data: Some(prop.value.into()),
+                    }),
+                };
+
+                entry_prop.properties.push(property);
+
+                interface_properties
+            });
+
+    astarte_message_hub_proto::StoredProperties {
+        interface_properties,
+    }
+}
+
 impl From<astarte_message_hub_proto::Ownership> for Ownership {
     fn from(value: astarte_message_hub_proto::Ownership) -> Self {
         match value {
             astarte_message_hub_proto::Ownership::Device => Ownership::Device,
             astarte_message_hub_proto::Ownership::Server => Ownership::Server,
         }
+    }
+}
+
+impl From<Ownership> for astarte_message_hub_proto::Ownership {
+    fn from(value: Ownership) -> Self {
+        match value {
+            Ownership::Device => astarte_message_hub_proto::Ownership::Device,
+            Ownership::Server => astarte_message_hub_proto::Ownership::Server,
+        }
+    }
+}
+
+/// Construct an sdk astarte type from a property that is required to be set
+impl TryFrom<astarte_message_hub_proto::Property> for AstarteType {
+    type Error = MessageHubProtoError;
+
+    fn try_from(property: astarte_message_hub_proto::Property) -> Result<Self, Self::Error> {
+        map_property_to_astarte_type(property)
+            .and_then(|e| e.ok_or(MessageHubProtoError::ExpectedField("value")))
     }
 }
 
