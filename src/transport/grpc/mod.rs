@@ -626,10 +626,7 @@ impl<'a> TryFrom<&'a Interfaces> for NodeData {
 mod test {
     use std::{future::Future, net::SocketAddr, str::FromStr};
 
-    use astarte_message_hub_proto::{
-        message_hub_server::{MessageHub, MessageHubServer},
-        AstarteMessage, AstarteUnset,
-    };
+    use astarte_message_hub_proto::{message_hub_server::{MessageHub, MessageHubServer}, AstarteMessage, AstarteUnset, Property, PropertyIdentifier, StoredProperties, StoredPropertiesFilter};
     use async_trait::async_trait;
     use tokio::{
         net::TcpListener,
@@ -644,7 +641,7 @@ mod test {
         transport::ReceivedEvent,
         AstarteAggregate, DeviceEvent, Value,
     };
-
+    use crate::transport::grpc::tonic::Response;
     use super::*;
 
     const ID: Uuid = uuid!("67e55044-10b1-426f-9247-bb680e5fe0c8");
@@ -763,6 +760,18 @@ mod test {
             self.server_received.send(ServerReceivedRequest::RemoveInterfaces(request.into_inner())).await.expect("Could not send notification of a server received message, connect a channel to the Receiver");
 
             Ok(tonic::Response::new(Empty::default()))
+        }
+
+        async fn get_properties(&self, _request: Request<InterfacesName>) -> Result<Response<StoredProperties>, Status> {
+            todo!()
+        }
+
+        async fn get_all_properties(&self, _request: Request<StoredPropertiesFilter>) -> Result<Response<StoredProperties>, Status> {
+            todo!()
+        }
+
+        async fn get_property(&self, _request: Request<PropertyIdentifier>) -> Result<Response<Property>, Status> {
+            todo!()
         }
     }
 
