@@ -885,7 +885,8 @@ mod test {
 
     use astarte_message_hub_proto::{
         message_hub_server::{MessageHub, MessageHubServer},
-        AstarteMessage, AstarteUnset, Property, StoredProperties,
+        AstarteMessage, AstarteUnset, Property, PropertyIdentifier, StoredProperties,
+        StoredPropertiesFilter,
     };
     use async_trait::async_trait;
     use tokio::{
@@ -894,6 +895,7 @@ mod test {
     };
     use uuid::uuid;
 
+    use super::*;
     use crate::{
         builder::DEFAULT_VOLATILE_CAPACITY,
         interface::Ownership,
@@ -904,8 +906,6 @@ mod test {
         },
         AstarteAggregate, DeviceEvent, Value,
     };
-
-    use super::*;
 
     const ID: Uuid = uuid!("67e55044-10b1-426f-9247-bb680e5fe0c8");
 
