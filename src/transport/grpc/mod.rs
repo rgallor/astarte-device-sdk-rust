@@ -25,6 +25,7 @@
 //! receiving, and registering interfaces.
 
 pub mod convert;
+pub mod types;
 
 use std::borrow::Borrow;
 use std::collections::HashMap;
@@ -626,7 +627,11 @@ impl<'a> TryFrom<&'a Interfaces> for NodeData {
 mod test {
     use std::{future::Future, net::SocketAddr, str::FromStr};
 
-    use astarte_message_hub_proto::{message_hub_server::{MessageHub, MessageHubServer}, AstarteMessage, AstarteUnset, Property, PropertyIdentifier, StoredProperties, StoredPropertiesFilter};
+    use astarte_message_hub_proto::{
+        message_hub_server::{MessageHub, MessageHubServer},
+        AstarteMessage, AstarteUnset, Property, PropertyIdentifier, StoredProperties,
+        StoredPropertiesFilter,
+    };
     use async_trait::async_trait;
     use tokio::{
         net::TcpListener,
@@ -634,6 +639,8 @@ mod test {
     };
     use uuid::uuid;
 
+    use super::*;
+    use crate::transport::grpc::tonic::Response;
     use crate::{
         builder::DEFAULT_VOLATILE_CAPACITY,
         store::memory::MemoryStore,
@@ -641,8 +648,6 @@ mod test {
         transport::ReceivedEvent,
         AstarteAggregate, DeviceEvent, Value,
     };
-    use crate::transport::grpc::tonic::Response;
-    use super::*;
 
     const ID: Uuid = uuid!("67e55044-10b1-426f-9247-bb680e5fe0c8");
 
@@ -762,15 +767,24 @@ mod test {
             Ok(tonic::Response::new(Empty::default()))
         }
 
-        async fn get_properties(&self, _request: Request<InterfacesName>) -> Result<Response<StoredProperties>, Status> {
+        async fn get_properties(
+            &self,
+            _request: Request<InterfacesName>,
+        ) -> Result<Response<StoredProperties>, Status> {
             todo!()
         }
 
-        async fn get_all_properties(&self, _request: Request<StoredPropertiesFilter>) -> Result<Response<StoredProperties>, Status> {
+        async fn get_all_properties(
+            &self,
+            _request: Request<StoredPropertiesFilter>,
+        ) -> Result<Response<StoredProperties>, Status> {
             todo!()
         }
 
-        async fn get_property(&self, _request: Request<PropertyIdentifier>) -> Result<Response<Property>, Status> {
+        async fn get_property(
+            &self,
+            _request: Request<PropertyIdentifier>,
+        ) -> Result<Response<Property>, Status> {
             todo!()
         }
     }
