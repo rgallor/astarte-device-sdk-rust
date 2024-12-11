@@ -1166,9 +1166,16 @@ mod test {
                 ]);
             let mapping_ref = interfaces.interface_mapping(INTERFACE_NAME, &path).unwrap();
 
+            // TODO: NODE: the grpc client will be build using the GrpcStoreWrapper, which implements
+            //  the methods to retrieve the properties
             let (mut client, _connection) =
                 mock_astarte_grpc_client(client, &interfaces).await.unwrap();
 
+            // the property has not been set
+            let _prop = client.store.get_property(INTERFACE_NAME, "/1/name", 0).await.unwrap();
+            assert!(_prop.is_unset());
+
+            // send property
             let validated_individual = mock_validate_individual(
                 mapping_ref,
                 &path,
@@ -1180,6 +1187,9 @@ mod test {
             client.send_individual(validated_individual).await.unwrap();
 
             // TODO: use here the msghub client methods to retrieve properties
+            //  only 1 propery will be retrieved
+            // the property now has been set
+            let _prop = client.store.get_property(INTERFACE_NAME, "/1/name", 0).await.unwrap();
 
             client.disconnect().await.unwrap();
         };
@@ -1192,6 +1202,7 @@ mod test {
 
         expect_messages!(channels.server_request_receiver.try_recv();
             ServerReceivedRequest::Attach((id, _)) if id == ID,
+            ServerReceivedRequest::GetProperty(names),
             ServerReceivedRequest::Send(m)
             => data_event = DeviceEvent::try_from(m).expect("Malformed message");
                 if data_event.interface == "org.astarte-platform.rust.examples.individual-properties.DeviceProperties"
