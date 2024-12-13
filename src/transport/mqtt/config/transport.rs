@@ -19,9 +19,9 @@
 use std::{path::PathBuf, sync::Arc};
 
 use rumqttc::Transport;
-use rustls::pki_types::PrivatePkcs8KeyDer;
+use rustls::{RootCertStore, pki_types::{PrivatePkcs8KeyDer}};
 use tokio::fs;
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, instrument};
 use url::Url;
 
 use crate::{
@@ -38,6 +38,7 @@ pub(crate) struct TransportProvider {
     credential_secret: String,
     store_dir: Option<PathBuf>,
     insecure_ssl: bool,
+    root_cert_store: Option<RootCertStore>
 }
 
 impl TransportProvider {
@@ -52,7 +53,39 @@ impl TransportProvider {
             credential_secret,
             store_dir,
             insecure_ssl,
+            root_cert_store: None
         }
+    }
+
+    #[cfg(feature = "webpki")]
+    #[instrument]
+    pub(crate) async fn read_root_cert_store(&mut self) -> Result<(), PairingError> {
+        debug!("reading root cert store from webpki");
+
+        self.root_cert_store = Some(RootCertStore {
+            roots: webpki_roots::TLS_SERVER_ROOTS.to_vec(),
+        });
+        
+        Ok(())
+    }
+
+    #[cfg(not(feature = "webpki"))]
+    #[instrument]
+    pub(crate) async fn read_root_cert_store(&mut self) -> Result<(), PairingError> {
+        debug!("reading root cert store from native certs");
+
+        let mut root_cert_store = RootCertStore::empty();
+
+        let native_certs =
+            rustls_native_certs::load_native_certs().map_err(PairingError::Native)?;
+
+        for cert in native_certs {
+            root_cert_store.add(cert).map_err(PairingError::Tls)?;
+        }
+
+        self.root_cert_store = Some(root_cert_store);
+        
+        Ok(())
     }
 
     /// Create the certificate using the Astarte API

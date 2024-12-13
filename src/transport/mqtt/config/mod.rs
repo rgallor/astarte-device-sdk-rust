@@ -402,12 +402,13 @@ where
             .map_err(|err| MqttError::Pairing(PairingError::InvalidUrl(err)))?;
 
         let insecure_ssl = self.ignore_ssl_errors || is_env_ignore_ssl();
-        let provider = TransportProvider::new(
+        let mut provider = TransportProvider::new(
             pairing_url,
             secret.clone(),
             builder.writable_dir.clone(),
             insecure_ssl,
         );
+        provider.read_root_cert_store().await.map_err(MqttError::Pairing)?;
 
         let client = ApiClient::from_transport(&provider, &self.realm, &self.device_id);
 

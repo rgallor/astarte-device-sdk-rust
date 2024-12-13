@@ -144,6 +144,8 @@ impl<'a> ApiClient<'a> {
 
         let payload = ApiData::new(MqttV1Csr { csr });
 
+        // TODO: save the client inside the ApiClient and configure it with the root_cert_store 
+        //  (using ::build(), not ::new()).
         let client = reqwest::Client::new();
         let response = client
             .post(url)

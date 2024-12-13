@@ -25,10 +25,7 @@ use std::{
 };
 
 use itertools::Itertools;
-use rustls::{
-    pki_types::{CertificateDer, PrivatePkcs8KeyDer},
-    RootCertStore,
-};
+use rustls::pki_types::{CertificateDer, PrivatePkcs8KeyDer};
 use tracing::{debug, error, instrument, warn};
 
 use crate::transport::mqtt::PairingError;
@@ -113,6 +110,7 @@ impl ClientAuth {
 
         rustls::ClientConfig::builder()
             .with_root_certificates(roots)
+            // TODO: use .with_no_client_auth()
             .with_client_auth_cert(self.certs, self.private_key.into())
             .map_err(PairingError::Tls)
     }
@@ -123,41 +121,10 @@ impl ClientAuth {
         rustls::ClientConfig::builder()
             .dangerous()
             .with_custom_certificate_verifier(Arc::new(NoVerifier {}))
+            // TODO: use .with_no_client_auth() 
             .with_client_auth_cert(self.certs, self.private_key.into())
             .map_err(PairingError::Tls)
     }
-}
-
-#[cfg(feature = "webpki")]
-#[instrument]
-async fn read_root_cert_store() -> Result<RootCertStore, PairingError> {
-    debug!("reading root cert store from webpki");
-
-    let root_cert_store = RootCertStore {
-        roots: webpki_roots::TLS_SERVER_ROOTS.to_vec(),
-    };
-
-    Ok(root_cert_store)
-}
-
-#[cfg(not(feature = "webpki"))]
-#[instrument]
-async fn read_root_cert_store() -> Result<RootCertStore, PairingError> {
-    debug!("reading root cert store from native certs");
-
-    tokio::task::spawn_blocking(|| {
-        let mut root_cert_store = RootCertStore::empty();
-
-        let native_certs =
-            rustls_native_certs::load_native_certs().map_err(PairingError::Native)?;
-
-        for cert in native_certs {
-            root_cert_store.add(cert).map_err(PairingError::Tls)?;
-        }
-
-        Ok(root_cert_store)
-    })
-    .await?
 }
 
 #[derive(Debug)]
