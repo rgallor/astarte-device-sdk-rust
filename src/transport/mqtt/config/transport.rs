@@ -19,9 +19,9 @@
 use std::{path::PathBuf, sync::Arc};
 
 use rumqttc::Transport;
-use rustls::{RootCertStore, pki_types::{PrivatePkcs8KeyDer}};
+use rustls::{pki_types::PrivatePkcs8KeyDer, ClientConfig, RootCertStore};
 use tokio::fs;
-use tracing::{debug, error, info, instrument};
+use tracing::{debug, error, info, instrument, warn};
 use url::Url;
 
 use crate::{
@@ -38,7 +38,7 @@ pub(crate) struct TransportProvider {
     credential_secret: String,
     store_dir: Option<PathBuf>,
     insecure_ssl: bool,
-    root_cert_store: Option<RootCertStore>
+    root_cert_store: Option<Arc<RootCertStore>>,
 }
 
 impl TransportProvider {
@@ -53,7 +53,7 @@ impl TransportProvider {
             credential_secret,
             store_dir,
             insecure_ssl,
-            root_cert_store: None
+            root_cert_store: None,
         }
     }
 
@@ -62,10 +62,10 @@ impl TransportProvider {
     pub(crate) async fn read_root_cert_store(&mut self) -> Result<(), PairingError> {
         debug!("reading root cert store from webpki");
 
-        self.root_cert_store = Some(RootCertStore {
+        self.root_cert_store = Some(Arc::new(RootCertStore {
             roots: webpki_roots::TLS_SERVER_ROOTS.to_vec(),
-        });
-        
+        }));
+
         Ok(())
     }
 
@@ -83,9 +83,14 @@ impl TransportProvider {
             root_cert_store.add(cert).map_err(PairingError::Tls)?;
         }
 
-        self.root_cert_store = Some(root_cert_store);
-        
+        self.root_cert_store = Some(Arc::new(root_cert_store));
+
         Ok(())
+    }
+
+    #[instrument(skip_all)]
+    pub(crate) fn root_cert_store(&self) -> Option<Arc<RootCertStore>> {
+        self.root_cert_store.clone()
     }
 
     /// Create the certificate using the Astarte API
@@ -135,13 +140,25 @@ impl TransportProvider {
         ClientAuth::try_read(certificate_file, private_key_file).await
     }
 
+    async fn config_client(&self, client_auth: ClientAuth) -> Result<ClientConfig, PairingError> {
+        if self.insecure_ssl {
+            client_auth.insecure_tls_config().await
+        } else if self.root_cert_store.is_some() {
+            let roots = self
+                .root_cert_store
+                .clone()
+                .expect("can't fail since checked in the else guard");
+
+            client_auth.tls_config(roots).await
+        } else {
+            warn!("root cert store has not been set");
+            client_auth.insecure_tls_config().await
+        }
+    }
+
     /// Config the TLS for the transport.
     async fn config_transport(&self, client_auth: ClientAuth) -> Result<Transport, PairingError> {
-        let config = if self.insecure_ssl {
-            client_auth.insecure_tls_config().await?
-        } else {
-            client_auth.tls_config().await?
-        };
+        let config = self.config_client(client_auth).await?;
 
         Ok(Transport::tls_with_config(
             rumqttc::TlsConfiguration::Rustls(Arc::new(config)),
@@ -246,7 +263,7 @@ mod tests {
             true,
         );
 
-        let api = ApiClient::from_transport(&provider, "realm", "device_id");
+        let api = ApiClient::try_from_transport(&provider, "realm", "device_id");
 
         let _ = provider.transport(&api).await.unwrap();
 
@@ -266,7 +283,7 @@ mod tests {
             true,
         );
 
-        let api = ApiClient::from_transport(&provider, "realm", "device_id");
+        let api = ApiClient::try_from_transport(&provider, "realm", "device_id");
 
         let _ = provider.transport(&api).await.unwrap();
 
@@ -292,7 +309,7 @@ mod tests {
             false,
         );
 
-        let api = ApiClient::from_transport(&provider, "realm", "device_id");
+        let api = ApiClient::try_from_transport(&provider, "realm", "device_id");
 
         let _ = provider.transport(&api).await.unwrap();
 
@@ -312,7 +329,7 @@ mod tests {
             false,
         );
 
-        let api = ApiClient::from_transport(&provider, "realm", "device_id");
+        let api = ApiClient::try_from_transport(&provider, "realm", "device_id");
 
         let _ = provider.transport(&api).await.unwrap();
 
@@ -338,7 +355,7 @@ mod tests {
             false,
         );
 
-        let api = ApiClient::from_transport(&provider, "realm", "device_id");
+        let api = ApiClient::try_from_transport(&provider, "realm", "device_id");
 
         let _ = provider.recreate_transport(&api).await.unwrap();
 
@@ -358,7 +375,7 @@ mod tests {
             false,
         );
 
-        let api = ApiClient::from_transport(&provider, "realm", "device_id");
+        let api = ApiClient::try_from_transport(&provider, "realm", "device_id");
 
         let _ = provider.recreate_transport(&api).await.unwrap();
 
@@ -383,7 +400,7 @@ mod tests {
             false,
         );
 
-        let api = ApiClient::from_transport(&provider, "realm", "device_id");
+        let api = ApiClient::try_from_transport(&provider, "realm", "device_id");
 
         let _ = provider.transport(&api).await.unwrap();
 

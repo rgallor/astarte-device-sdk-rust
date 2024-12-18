@@ -99,20 +99,29 @@ pub(crate) struct ApiClient<'a> {
     pub(crate) device_id: &'a str,
     pairing_url: &'a Url,
     credentials_secret: &'a str,
+    client: reqwest::Client,
 }
 
 impl<'a> ApiClient<'a> {
-    pub(crate) fn from_transport(
+    pub(crate) fn try_from_transport(
         provider: &'a TransportProvider,
         realm: &'a str,
         device_id: &'a str,
-    ) -> Self {
-        Self {
+    ) -> Result<Self, PairingError> {
+        let roots = provider.root_cert_store();
+
+        // import native or webpki root certificates and prevent from importing native root certs
+        let client = reqwest::Client::builder()
+            .use_preconfigured_tls(roots)
+            .build()?;
+
+        Ok(Self {
             realm,
             device_id,
             pairing_url: provider.pairing_url(),
             credentials_secret: provider.credential_secret(),
-        }
+            client,
+        })
     }
 
     fn url<'i, I>(&self, segments: I) -> Result<Url, PairingError>
@@ -144,10 +153,8 @@ impl<'a> ApiClient<'a> {
 
         let payload = ApiData::new(MqttV1Csr { csr });
 
-        // TODO: save the client inside the ApiClient and configure it with the root_cert_store 
-        //  (using ::build(), not ::new()).
-        let client = reqwest::Client::new();
-        let response = client
+        let response = self
+            .client
             .post(url)
             .bearer_auth(self.credentials_secret)
             .json(&payload)
@@ -174,8 +181,8 @@ impl<'a> ApiClient<'a> {
     pub async fn get_broker_url(&self) -> Result<Url, PairingError> {
         let url = self.url([])?;
 
-        let client = reqwest::Client::new();
-        let response = client
+        let response = self
+            .client
             .get(url)
             .bearer_auth(self.credentials_secret)
             .send()

@@ -364,7 +364,8 @@ impl Disconnected {
     /// session. If it fails, it returns an error so that the whole connection process can
     /// be retried.
     async fn reconnect(&mut self, conn: &mut Connection, client_id: ClientId<&str>) -> Next {
-        let api = ApiClient::from_transport(&conn.provider, client_id.realm, client_id.device_id);
+        let api =
+            ApiClient::try_from_transport(&conn.provider, client_id.realm, client_id.device_id);
 
         let transport = match conn.provider.recreate_transport(&api).await {
             Ok(transport) => transport,
