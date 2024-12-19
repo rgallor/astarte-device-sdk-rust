@@ -108,9 +108,10 @@ impl ClientAuth {
     }
 
     #[instrument(skip_all)]
-    pub(crate) async fn tls_config(self) -> Result<rustls::ClientConfig, PairingError> {
-        let roots = read_root_cert_store().await?;
-
+    pub(crate) async fn tls_config(
+        self,
+        roots: Arc<RootCertStore>,
+    ) -> Result<rustls::ClientConfig, PairingError> {
         rustls::ClientConfig::builder()
             .with_root_certificates(roots)
             .with_client_auth_cert(self.certs, self.private_key.into())
@@ -161,7 +162,7 @@ async fn read_root_cert_store() -> Result<RootCertStore, PairingError> {
 }
 
 #[derive(Debug)]
-struct NoVerifier;
+pub(crate) struct NoVerifier;
 
 impl rustls::client::danger::ServerCertVerifier for NoVerifier {
     fn verify_server_cert(
@@ -252,7 +253,8 @@ pub(crate) mod tests {
 
         assert_eq!(client.private_key.secret_pkcs8_der(), TEST_PRIVATE_KEY);
 
-        client.tls_config().await.unwrap();
+        let root_cert_store = Arc::new(rustls::RootCertStore::empty());
+        client.tls_config(root_cert_store).await.unwrap();
 
         // Reuse the file setup
         let client = ClientAuth::try_read(cert, key).await.unwrap();
