@@ -49,7 +49,6 @@ use tracing::{debug, error, info, trace};
 
 use super::{
     Connection, Disconnect, Publish, Receive, ReceivedEvent, Reconnect, Register, TransportError,
-    WrapStore,
 };
 
 pub use self::config::Credential;
@@ -739,20 +738,9 @@ where
 
 impl<S> Connection for Mqtt<S>
 where
-    S: Send + Sync,
-{
-    type Sender = MqttClient<S>;
-}
-
-impl<S> WrapStore<S> for Mqtt<S>
-where
     S: PropertyStore,
 {
-    type Store = S;
-
-    fn wrap_store(store: S, _client: &Self::Sender) -> Self::Store {
-        store
-    }
+    type Sender = MqttClient<S>;
 }
 
 /// Wrapper structs that holds data used when connecting/reconnecting
@@ -881,7 +869,9 @@ pub(crate) mod test {
     };
 
     use crate::{
-        builder::{ConnectionConfig, DeviceBuilder, DEFAULT_VOLATILE_CAPACITY},
+        builder::{
+            ConnectionBuildConfig, ConnectionConfig, DeviceBuilder, DEFAULT_VOLATILE_CAPACITY,
+        },
         store::memory::MemoryStore,
     };
 
@@ -1261,10 +1251,17 @@ pub(crate) mod test {
             server.url(),
         );
 
-        tokio::time::timeout(Duration::from_secs(3), config.connect(&builder))
-            .await
-            .expect("timeout expired")
-            .unwrap();
+        tokio::time::timeout(
+            Duration::from_secs(3),
+            config.connect(ConnectionBuildConfig {
+                store: builder.store,
+                interfaces: &builder.interfaces,
+                config: builder.config,
+            }),
+        )
+        .await
+        .expect("timeout expired")
+        .unwrap();
 
         mock_url.assert_async().await;
         mock_cert.assert_async().await;

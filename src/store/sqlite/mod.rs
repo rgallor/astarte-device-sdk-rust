@@ -28,7 +28,7 @@ use rusqlite::{
 use statements::{include_query, ReadConnection, WriteConnection};
 use tracing::{debug, error, trace};
 
-use super::{OptStoredProp, PropertyStore, StoreCapabilities, StoreInterfaceData, StoredProp};
+use super::{InterfaceInfo, OptStoredProp, PropertyStore, StoreCapabilities, StoredProp};
 use crate::{
     interface::{MappingType, Ownership},
     transport::mqtt::payload::{Payload, PayloadError},
@@ -466,7 +466,7 @@ impl PropertyStore for SqliteStore {
 
     async fn load_prop<S>(
         &self,
-        interface: &StoreInterfaceData<S>,
+        interface: &InterfaceInfo<S>,
         path: &str,
         interface_major: i32,
     ) -> Result<Option<AstarteType>, Self::Err>
@@ -506,11 +506,7 @@ impl PropertyStore for SqliteStore {
         }
     }
 
-    async fn unset_prop<S>(
-        &self,
-        interface: &StoreInterfaceData<S>,
-        path: &str,
-    ) -> Result<(), Self::Err>
+    async fn unset_prop<S>(&self, interface: &InterfaceInfo<S>, path: &str) -> Result<(), Self::Err>
     where
         S: AsRef<str> + Send + Sync,
     {
@@ -524,7 +520,7 @@ impl PropertyStore for SqliteStore {
 
     async fn delete_prop<S>(
         &self,
-        interface: &StoreInterfaceData<S>,
+        interface: &InterfaceInfo<S>,
         path: &str,
     ) -> Result<(), Self::Err>
     where
@@ -558,7 +554,7 @@ impl PropertyStore for SqliteStore {
 
     async fn interface_props<S>(
         &self,
-        interface: &StoreInterfaceData<S>,
+        interface: &InterfaceInfo<S>,
     ) -> Result<Vec<StoredProp>, Self::Err>
     where
         S: AsRef<str> + Send + Sync,
@@ -566,7 +562,7 @@ impl PropertyStore for SqliteStore {
         self.with_reader(|reader| reader.interface_props(interface.name.as_ref()))
     }
 
-    async fn delete_interface<S>(&self, interface: &StoreInterfaceData<S>) -> Result<(), Self::Err>
+    async fn delete_interface<S>(&self, interface: &InterfaceInfo<S>) -> Result<(), Self::Err>
     where
         S: AsRef<str> + Send + Sync,
     {

@@ -48,7 +48,6 @@ use astarte_message_hub_proto::{
 };
 use astarte_message_hub_proto::{PropertyIdentifier, StoredPropertiesFilter};
 use bytes::Bytes;
-use itertools::Itertools;
 use sync_wrapper::SyncWrapper;
 use tokio::sync::Mutex;
 use tracing::{debug, error, trace, warn};
@@ -57,16 +56,16 @@ use uuid::Uuid;
 use self::convert::MessageHubProtoError;
 use super::{
     Connection, Disconnect, Publish, Receive, ReceivedEvent, Reconnect, Register, TransportError,
-    WrapStore,
 };
+use crate::builder::ConnectionBuildConfig;
 use crate::client::RecvError;
 use crate::error::AggregateError;
 use crate::interface::Aggregation;
 use crate::retention::memory::SharedVolatileStore;
 use crate::retention::{PublishInfo, RetentionId};
-use crate::store::{OptStoredProp, StoreInterfaceData, StoredProp};
+use crate::store::{InterfaceInfo, OptStoredProp, StoredProp};
 use crate::{
-    builder::{ConnectionConfig, DeviceBuilder, DeviceTransport},
+    builder::{ConnectionConfig, DeviceTransport},
     interface::{
         mapping::path::MappingPath,
         reference::{MappingRef, ObjectRef},
@@ -132,6 +131,7 @@ impl Interceptor for NodeIdInterceptor {
 }
 
 /// Client to send packets to the [Message Hub](https://github.com/astarte-platform/astarte-message-hub).
+#[derive(Debug, Clone)]
 pub struct GrpcClient<S> {
     client: MsgHubClient,
     store: StoreWrapper<S>,
@@ -525,18 +525,7 @@ impl<S> Connection for Grpc<S>
 where
     S: PropertyStore,
 {
-    type Sender = GrpcClient<S>;
-}
-
-impl<S> WrapStore<S> for Grpc<S>
-where
-    S: PropertyStore,
-{
-    type Store = GrpcStore<S>;
-
-    fn wrap_store(store: S, sender: &Self::Sender) -> Self::Store {
-        GrpcStore::new(store, sender.client.clone())
-    }
+    type Sender = GrpcClient<GrpcStore<S>>;
 }
 
 /// Internal struct holding the received grpc message
@@ -582,35 +571,38 @@ impl<S> ConnectionConfig<S> for GrpcConfig
 where
     S: StoreCapabilities + PropertyStore + Send + Sync,
 {
+    type Store = GrpcStore<S>;
     type Conn = Grpc<S>;
-    type Err = Error;
+    type Err = GrpcError;
 
-    async fn connect<C>(
+    async fn connect(
         self,
-        builder: &DeviceBuilder<S, C>,
-    ) -> Result<DeviceTransport<Grpc<S>>, Self::Err>
-    where
-        C: Send + Sync,
-    {
+        config: ConnectionBuildConfig<'_, S>,
+    ) -> Result<DeviceTransport<Self::Store, Self::Conn>, Self::Err> {
+        let ConnectionBuildConfig {
+            store,
+            interfaces,
+            config,
+        } = config;
+
         let channel = self.endpoint.connect().await.map_err(GrpcError::from)?;
 
         let node_id_interceptor = NodeIdInterceptor::new(self.uuid);
 
         let mut client = MessageHubClient::with_interceptor(channel, node_id_interceptor);
 
-        let node_data = NodeData::try_from(&builder.interfaces)?;
+        let node_data = NodeData::try_from(interfaces)?;
         let stream = Grpc::<StoreWrapper<S>>::attach(&mut client, node_data).await?;
 
-        let sender = GrpcClient::new(
-            client.clone(),
-            StoreWrapper::new(builder.store.clone()),
-            builder.volatile.clone(),
-        );
+        let grpc_store = StoreWrapper::new(GrpcStore::new(store.clone(), client.clone()));
+
+        let sender = GrpcClient::new(client.clone(), grpc_store.clone(), config.volatile.clone());
         let receiver = Grpc::new(self.uuid, client, stream);
 
         Ok(DeviceTransport {
             sender,
             connection: receiver,
+            store: grpc_store,
         })
     }
 }
@@ -741,7 +733,7 @@ where
 
     async fn load_prop<I>(
         &self,
-        interface: &StoreInterfaceData<I>,
+        interface: &InterfaceInfo<I>,
         path: &str,
         interface_major: i32,
     ) -> Result<Option<AstarteType>, Self::Err>
@@ -771,11 +763,7 @@ where
         convert::map_property_to_astarte_type(property).map_err(GrpcStoreError::from_conversion)
     }
 
-    async fn unset_prop<I>(
-        &self,
-        interface: &StoreInterfaceData<I>,
-        path: &str,
-    ) -> Result<(), Self::Err>
+    async fn unset_prop<I>(&self, interface: &InterfaceInfo<I>, path: &str) -> Result<(), Self::Err>
     where
         I: AsRef<str> + Send + Sync,
     {
@@ -792,7 +780,7 @@ where
 
     async fn delete_prop<I>(
         &self,
-        interface: &StoreInterfaceData<I>,
+        interface: &InterfaceInfo<I>,
         path: &str,
     ) -> Result<(), Self::Err>
     where
@@ -843,7 +831,7 @@ where
 
     async fn interface_props<I>(
         &self,
-        interface: &StoreInterfaceData<I>,
+        interface: &InterfaceInfo<I>,
     ) -> Result<Vec<StoredProp>, Self::Err>
     where
         I: AsRef<str> + Send + Sync,
@@ -870,7 +858,7 @@ where
             })
     }
 
-    async fn delete_interface<I>(&self, interface: &StoreInterfaceData<I>) -> Result<(), Self::Err>
+    async fn delete_interface<I>(&self, interface: &InterfaceInfo<I>) -> Result<(), Self::Err>
     where
         I: AsRef<str> + Send + Sync,
     {

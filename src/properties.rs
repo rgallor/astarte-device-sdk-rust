@@ -71,8 +71,8 @@ pub trait PropAccess {
     ///     let mqtt_config = MqttConfig::with_credential_secret("realm_id", "device_id", "credential_secret", "pairing_url");
     ///
     ///     let (mut device, _connection) = DeviceBuilder::new().store(database)
-    ///         .connect(mqtt_config).await.unwrap()
-    ///         .build().await;
+    ///         .connection(mqtt_config)
+    ///         .build().await.unwrap();
     ///
     ///     let property_value: Option<AstarteType> = device
     ///         .property("my.interface.name", "/endpoint/path")

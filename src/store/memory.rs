@@ -23,7 +23,7 @@ use std::{collections::HashMap, fmt::Display, hash::Hash, sync::Arc};
 use tokio::sync::RwLock;
 use tracing::error;
 
-use super::{OptStoredProp, PropertyStore, StoreCapabilities, StoreInterfaceData, StoredProp};
+use super::{InterfaceInfo, OptStoredProp, PropertyStore, StoreCapabilities, StoredProp};
 use crate::{interface::Ownership, retention::Missing, types::AstarteType};
 
 /// Error from the memory store.
@@ -88,7 +88,7 @@ impl PropertyStore for MemoryStore {
 
     async fn load_prop<S>(
         &self,
-        interface: &StoreInterfaceData<S>,
+        interface: &InterfaceInfo<S>,
         path: &str,
         interface_major: i32,
     ) -> Result<Option<AstarteType>, Self::Err>
@@ -123,11 +123,7 @@ impl PropertyStore for MemoryStore {
         }
     }
 
-    async fn unset_prop<S>(
-        &self,
-        interface: &StoreInterfaceData<S>,
-        path: &str,
-    ) -> Result<(), Self::Err>
+    async fn unset_prop<S>(&self, interface: &InterfaceInfo<S>, path: &str) -> Result<(), Self::Err>
     where
         S: AsRef<str> + Send + Sync,
     {
@@ -144,7 +140,7 @@ impl PropertyStore for MemoryStore {
 
     async fn delete_prop<S>(
         &self,
-        interface: &StoreInterfaceData<S>,
+        interface: &InterfaceInfo<S>,
         path: &str,
     ) -> Result<(), Self::Err>
     where
@@ -205,7 +201,7 @@ impl PropertyStore for MemoryStore {
 
     async fn interface_props<S>(
         &self,
-        interface: &StoreInterfaceData<S>,
+        interface: &InterfaceInfo<S>,
     ) -> Result<Vec<StoredProp>, Self::Err>
     where
         S: AsRef<str> + Send + Sync,
@@ -225,7 +221,7 @@ impl PropertyStore for MemoryStore {
             .collect())
     }
 
-    async fn delete_interface<S>(&self, interface: &StoreInterfaceData<S>) -> Result<(), Self::Err>
+    async fn delete_interface<S>(&self, interface: &InterfaceInfo<S>) -> Result<(), Self::Err>
     where
         S: AsRef<str> + Send + Sync,
     {

@@ -21,8 +21,7 @@
 use crate::types::AstarteType;
 
 use super::{
-    error::StoreError, OptStoredProp, PropertyStore, StoreCapabilities, StoreInterfaceData,
-    StoredProp,
+    error::StoreError, InterfaceInfo, OptStoredProp, PropertyStore, StoreCapabilities, StoredProp,
 };
 
 /// Wrapper for a generic [`AstarteDatabase`] to convert the error in [`Error`].
@@ -61,7 +60,7 @@ where
 
     async fn load_prop<I>(
         &self,
-        interface: &StoreInterfaceData<I>,
+        interface: &InterfaceInfo<I>,
         path: &str,
         interface_major: i32,
     ) -> Result<Option<AstarteType>, Self::Err>
@@ -74,11 +73,7 @@ where
             .map_err(StoreError::load)
     }
 
-    async fn unset_prop<I>(
-        &self,
-        interface: &StoreInterfaceData<I>,
-        path: &str,
-    ) -> Result<(), Self::Err>
+    async fn unset_prop<I>(&self, interface: &InterfaceInfo<I>, path: &str) -> Result<(), Self::Err>
     where
         I: AsRef<str> + Send + Sync,
     {
@@ -90,7 +85,7 @@ where
 
     async fn delete_prop<I>(
         &self,
-        interface: &StoreInterfaceData<I>,
+        interface: &InterfaceInfo<I>,
         path: &str,
     ) -> Result<(), Self::Err>
     where
@@ -129,7 +124,7 @@ where
 
     async fn interface_props<I>(
         &self,
-        interface: &StoreInterfaceData<I>,
+        interface: &InterfaceInfo<I>,
     ) -> Result<Vec<StoredProp>, Self::Err>
     where
         I: AsRef<str> + Send + Sync,
@@ -140,7 +135,7 @@ where
             .map_err(StoreError::interface_props)
     }
 
-    async fn delete_interface<I>(&self, interface: &StoreInterfaceData<I>) -> Result<(), Self::Err>
+    async fn delete_interface<I>(&self, interface: &InterfaceInfo<I>) -> Result<(), Self::Err>
     where
         I: AsRef<str> + Send + Sync,
     {

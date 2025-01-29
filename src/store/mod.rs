@@ -52,21 +52,21 @@ pub trait StoreCapabilities {
 
 /// Data passed to the store that identifies an interface
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct StoreInterfaceData<S = String> {
+pub struct InterfaceInfo<S = String> {
     pub(crate) name: S,
     pub(crate) ownership: Ownership,
 }
 
-impl<S> StoreInterfaceData<S> {
+impl<S> InterfaceInfo<S> {
     fn new(name: S, ownership: Ownership) -> Self {
         Self { name, ownership }
     }
 
-    pub(crate) fn owned_name(self) -> StoreInterfaceData
+    pub(crate) fn owned_name(self) -> InterfaceInfo
     where
         S: ToString,
     {
-        StoreInterfaceData {
+        InterfaceInfo {
             name: self.name.to_string(),
             ownership: self.ownership,
         }
@@ -74,21 +74,21 @@ impl<S> StoreInterfaceData<S> {
 }
 
 /// Converts an interface object reference to the store needed input
-impl<'a> From<&'a Interface> for StoreInterfaceData<&'a str> {
+impl<'a> From<&'a Interface> for InterfaceInfo<&'a str> {
     fn from(interface: &'a Interface) -> Self {
         Self::new(interface.interface_name(), interface.ownership())
     }
 }
 
 /// Converts a property ref object reference to the store needed input
-impl<'a> From<&'a PropertyRef<'a>> for StoreInterfaceData<&'a str> {
+impl<'a> From<&'a PropertyRef<'a>> for InterfaceInfo<&'a str> {
     fn from(prop_ref: &'a PropertyRef) -> Self {
         Self::new(prop_ref.0.interface_name(), prop_ref.0.ownership())
     }
 }
 
 /// Converts a stored prop reference to the store needed input
-impl<'a, S, V> From<&'a StoredProp<S, V>> for StoreInterfaceData<&'a str>
+impl<'a, S, V> From<&'a StoredProp<S, V>> for InterfaceInfo<&'a str>
 where
     S: AsRef<str>,
 {
@@ -124,7 +124,7 @@ where
     /// interface does not match the one provided.
     fn load_prop<I>(
         &self,
-        interface: &StoreInterfaceData<I>,
+        interface: &InterfaceInfo<I>,
         path: &str,
         interface_major: i32,
     ) -> impl Future<Output = Result<Option<AstarteType>, Self::Err>> + Send
@@ -133,7 +133,7 @@ where
     /// Unset a property from the database.
     fn unset_prop<I>(
         &self,
-        interface: &StoreInterfaceData<I>,
+        interface: &InterfaceInfo<I>,
         path: &str,
     ) -> impl Future<Output = Result<(), Self::Err>> + Send
     where
@@ -141,7 +141,7 @@ where
     /// Delete a property from the database.
     fn delete_prop<I>(
         &self,
-        interface: &StoreInterfaceData<I>,
+        interface: &InterfaceInfo<I>,
         path: &str,
     ) -> impl Future<Output = Result<(), Self::Err>> + Send
     where
@@ -160,14 +160,14 @@ where
     /// Retrieves all the property values of a specific interface in the database.
     fn interface_props<I>(
         &self,
-        interface: &StoreInterfaceData<I>,
+        interface: &InterfaceInfo<I>,
     ) -> impl Future<Output = Result<Vec<StoredProp>, Self::Err>> + Send
     where
         I: AsRef<str> + Send + Sync;
     /// Deletes all the properties of the interface from the database.
     fn delete_interface<I>(
         &self,
-        interface: &StoreInterfaceData<I>,
+        interface: &InterfaceInfo<I>,
     ) -> impl Future<Output = Result<(), Self::Err>> + Send
     where
         I: AsRef<str> + Send + Sync;
@@ -376,8 +376,7 @@ mod tests {
             interface_major: 1,
             ownership: Ownership::Device,
         };
-        let device_interface_data =
-            (Into::<StoreInterfaceData<&'_ str>>::into(&device)).owned_name();
+        let device_interface_data = (Into::<InterfaceInfo<&'_ str>>::into(&device)).owned_name();
         let server = StoredProp {
             interface: "com.test2".into(),
             path: "/test2".into(),
@@ -477,7 +476,7 @@ mod tests {
             interface_major: 1,
             ownership: Ownership::Device,
         };
-        let prop_interface_data = Into::<StoreInterfaceData<&'_ str>>::into(&prop).owned_name();
+        let prop_interface_data = Into::<InterfaceInfo<&'_ str>>::into(&prop).owned_name();
         mem.store_prop(prop).await.unwrap();
 
         let res =

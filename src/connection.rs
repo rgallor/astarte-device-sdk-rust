@@ -71,8 +71,8 @@ pub trait EventLoop {
     ///
     ///     let (client, mut connection) = DeviceBuilder::new()
     ///         .store(MemoryStore::new())
-    ///         .connect(mqtt_config).await.unwrap()
-    ///         .build().await;
+    ///         .connection(mqtt_config)
+    ///         .build().await.unwrap();
     ///
     ///     tokio::spawn(async move {
     ///         loop {

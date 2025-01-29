@@ -29,7 +29,7 @@ use crate::{
         reference::{MappingRef, ObjectRef, PropertyRef},
         MappingAccess, Ownership, Reliability, Retention,
     },
-    store::StoreInterfaceData,
+    store::InterfaceInfo,
     types::AstarteType,
     Interface, Timestamp,
 };
@@ -197,7 +197,7 @@ impl ValidatedObject {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct ValidatedUnset {
-    pub(crate) interface: StoreInterfaceData,
+    pub(crate) interface: InterfaceInfo,
     pub(crate) path: String,
 }
 
@@ -214,7 +214,7 @@ impl ValidatedUnset {
         }
 
         Ok(Self {
-            interface: Into::<StoreInterfaceData<&'_ str>>::into(mapping.interface()).owned_name(),
+            interface: Into::<InterfaceInfo<&'_ str>>::into(mapping.interface()).owned_name(),
             path: path.to_string(),
         })
     }
