@@ -28,7 +28,9 @@ use rusqlite::{
 use statements::{include_query, ReadConnection, WriteConnection};
 use tracing::{debug, error, trace};
 
-use super::{InterfaceInfo, OptStoredProp, PropertyStore, StoreCapabilities, StoredProp};
+use super::{
+    InterfaceInfo, OptStoredProp, PropertyInfo, PropertyStore, StoreCapabilities, StoredProp,
+};
 use crate::{
     interface::{MappingType, Ownership},
     transport::mqtt::payload::{Payload, PayloadError},
@@ -464,24 +466,20 @@ impl PropertyStore for SqliteStore {
         Ok(())
     }
 
-    async fn load_prop<I>(
+    async fn load_prop(
         &self,
-        interface: &InterfaceInfo<I>,
-        path: &str,
+        property: &PropertyInfo<'_>,
         interface_major: i32,
-    ) -> Result<Option<AstarteType>, Self::Err>
-    where
-        I: AsRef<str> + Send + Sync,
-    {
+    ) -> Result<Option<AstarteType>, Self::Err> {
         let opt_record =
-            self.with_reader(|reader| reader.load_prop(interface.name.as_ref(), path))?;
+            self.with_reader(|reader| reader.load_prop(property.name.as_ref(), property.path))?;
 
         match opt_record {
             Some(record) => {
                 trace!(
                     "Loaded property {} {} in db {:?}",
-                    interface.name.as_ref(),
-                    path,
+                    property.name,
+                    property.path,
                     record
                 );
 
@@ -489,13 +487,10 @@ impl PropertyStore for SqliteStore {
                 if record.interface_major != interface_major {
                     error!(
                         "Version mismatch for property {}{} (stored {}, interface {}). Deleting.",
-                        interface.name.as_ref(),
-                        path,
-                        record.interface_major,
-                        interface_major
+                        property.name, property.path, record.interface_major, interface_major
                     );
 
-                    self.delete_prop(interface, path).await?;
+                    self.delete_prop(property).await?;
 
                     return Ok(None);
                 }
@@ -506,30 +501,20 @@ impl PropertyStore for SqliteStore {
         }
     }
 
-    async fn unset_prop<I>(&self, interface: &InterfaceInfo<I>, path: &str) -> Result<(), Self::Err>
-    where
-        I: AsRef<str> + Send + Sync,
-    {
+    async fn unset_prop(&self, property: &PropertyInfo<'_>) -> Result<(), Self::Err> {
         self.writer
             .lock()
             .await
-            .unset_prop(interface.name.as_ref(), path)?;
+            .unset_prop(property.name.as_ref(), property.path)?;
 
         Ok(())
     }
 
-    async fn delete_prop<I>(
-        &self,
-        interface: &InterfaceInfo<I>,
-        path: &str,
-    ) -> Result<(), Self::Err>
-    where
-        I: AsRef<str> + Send + Sync,
-    {
+    async fn delete_prop(&self, property: &PropertyInfo<'_>) -> Result<(), Self::Err> {
         self.writer
             .lock()
             .await
-            .delete_prop(interface.name.as_ref(), path)?;
+            .delete_prop(property.name.as_ref(), property.path)?;
 
         Ok(())
     }
@@ -552,20 +537,14 @@ impl PropertyStore for SqliteStore {
         self.with_reader(|reader| reader.props_with_ownership(Ownership::Server))
     }
 
-    async fn interface_props<I>(
+    async fn interface_props(
         &self,
-        interface: &InterfaceInfo<I>,
-    ) -> Result<Vec<StoredProp>, Self::Err>
-    where
-        I: AsRef<str> + Send + Sync,
-    {
+        interface: &InterfaceInfo<'_>,
+    ) -> Result<Vec<StoredProp>, Self::Err> {
         self.with_reader(|reader| reader.interface_props(interface.name.as_ref()))
     }
 
-    async fn delete_interface<I>(&self, interface: &InterfaceInfo<I>) -> Result<(), Self::Err>
-    where
-        I: AsRef<str> + Send + Sync,
-    {
+    async fn delete_interface(&self, interface: &InterfaceInfo<'_>) -> Result<(), Self::Err> {
         self.writer
             .lock()
             .await
@@ -652,7 +631,7 @@ mod tests {
             store.store_prop(prop).await.unwrap();
             assert_eq!(
                 store
-                    .load_prop(&prop_interface_data, "/test", 1)
+                    .load_prop(&prop_interface_data, 1)
                     .await
                     .unwrap()
                     .unwrap(),

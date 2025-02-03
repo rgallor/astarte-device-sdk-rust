@@ -21,7 +21,8 @@
 use crate::types::AstarteType;
 
 use super::{
-    error::StoreError, InterfaceInfo, OptStoredProp, PropertyStore, StoreCapabilities, StoredProp,
+    error::StoreError, InterfaceInfo, OptStoredProp, PropertyInfo, PropertyStore,
+    StoreCapabilities, StoredProp,
 };
 
 /// Wrapper for a generic [`AstarteDatabase`] to convert the error in [`Error`].
@@ -47,7 +48,6 @@ where
     }
 }
 
-// TODO could this be a blanket implementation for every S that returns dyn error
 impl<S> PropertyStore for StoreWrapper<S>
 where
     S: PropertyStore,
@@ -58,41 +58,27 @@ where
         self.store.store_prop(prop).await.map_err(StoreError::store)
     }
 
-    async fn load_prop<I>(
+    async fn load_prop(
         &self,
-        interface: &InterfaceInfo<I>,
-        path: &str,
+        property: &PropertyInfo<'_>,
         interface_major: i32,
-    ) -> Result<Option<AstarteType>, Self::Err>
-    where
-        I: AsRef<str> + Send + Sync,
-    {
+    ) -> Result<Option<AstarteType>, Self::Err> {
         self.store
-            .load_prop(interface, path, interface_major)
+            .load_prop(property, interface_major)
             .await
             .map_err(StoreError::load)
     }
 
-    async fn unset_prop<I>(&self, interface: &InterfaceInfo<I>, path: &str) -> Result<(), Self::Err>
-    where
-        I: AsRef<str> + Send + Sync,
-    {
+    async fn unset_prop(&self, property: &PropertyInfo<'_>) -> Result<(), Self::Err> {
         self.store
-            .unset_prop(interface, path)
+            .unset_prop(property)
             .await
             .map_err(StoreError::unset)
     }
 
-    async fn delete_prop<I>(
-        &self,
-        interface: &InterfaceInfo<I>,
-        path: &str,
-    ) -> Result<(), Self::Err>
-    where
-        I: AsRef<str> + Send + Sync,
-    {
+    async fn delete_prop(&self, interface: &PropertyInfo<'_>) -> Result<(), Self::Err> {
         self.store
-            .delete_prop(interface, path)
+            .delete_prop(interface)
             .await
             .map_err(StoreError::delete)
     }
@@ -122,23 +108,17 @@ where
             .map_err(StoreError::device_props)
     }
 
-    async fn interface_props<I>(
+    async fn interface_props(
         &self,
-        interface: &InterfaceInfo<I>,
-    ) -> Result<Vec<StoredProp>, Self::Err>
-    where
-        I: AsRef<str> + Send + Sync,
-    {
+        interface: &InterfaceInfo<'_>,
+    ) -> Result<Vec<StoredProp>, Self::Err> {
         self.store
             .interface_props(interface)
             .await
             .map_err(StoreError::interface_props)
     }
 
-    async fn delete_interface<I>(&self, interface: &InterfaceInfo<I>) -> Result<(), Self::Err>
-    where
-        I: AsRef<str> + Send + Sync,
-    {
+    async fn delete_interface(&self, interface: &InterfaceInfo<'_>) -> Result<(), Self::Err> {
         self.store
             .delete_interface(interface)
             .await

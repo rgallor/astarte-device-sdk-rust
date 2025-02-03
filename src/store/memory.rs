@@ -23,7 +23,9 @@ use std::{collections::HashMap, fmt::Display, hash::Hash, sync::Arc};
 use tokio::sync::RwLock;
 use tracing::error;
 
-use super::{InterfaceInfo, OptStoredProp, PropertyStore, StoreCapabilities, StoredProp};
+use super::{
+    InterfaceInfo, OptStoredProp, PropertyInfo, PropertyStore, StoreCapabilities, StoredProp,
+};
 use crate::{interface::Ownership, retention::Missing, types::AstarteType};
 
 /// Error from the memory store.
@@ -86,16 +88,12 @@ impl PropertyStore for MemoryStore {
         Ok(())
     }
 
-    async fn load_prop<I>(
+    async fn load_prop(
         &self,
-        interface: &InterfaceInfo<I>,
-        path: &str,
+        property: &PropertyInfo<'_>,
         interface_major: i32,
-    ) -> Result<Option<AstarteType>, Self::Err>
-    where
-        I: AsRef<str> + Send + Sync,
-    {
-        let key = Key::new(interface.name.as_ref(), path);
+    ) -> Result<Option<AstarteType>, Self::Err> {
+        let key = Key::new(property.name, property.path);
 
         // We need to drop the lock before calling delete_prop
         let opt_val = {
@@ -108,13 +106,10 @@ impl PropertyStore for MemoryStore {
             Some(value) if value.interface_major != interface_major => {
                 error!(
                     "Version mismatch for property {}{} (stored {}, interface {}). Deleting.",
-                    interface.name.as_ref(),
-                    path,
-                    value.interface_major,
-                    interface_major
+                    property.name, property.path, value.interface_major, interface_major
                 );
 
-                self.delete_prop(interface, path).await?;
+                self.delete_prop(property).await?;
 
                 Ok(None)
             }
@@ -123,11 +118,8 @@ impl PropertyStore for MemoryStore {
         }
     }
 
-    async fn unset_prop<I>(&self, interface: &InterfaceInfo<I>, path: &str) -> Result<(), Self::Err>
-    where
-        I: AsRef<str> + Send + Sync,
-    {
-        let key = Key::new(interface.name.as_ref(), path);
+    async fn unset_prop(&self, property: &PropertyInfo<'_>) -> Result<(), Self::Err> {
+        let key = Key::new(property.name, property.path);
 
         let mut writer = self.store.write().await;
 
@@ -138,15 +130,8 @@ impl PropertyStore for MemoryStore {
         Ok(())
     }
 
-    async fn delete_prop<I>(
-        &self,
-        interface: &InterfaceInfo<I>,
-        path: &str,
-    ) -> Result<(), Self::Err>
-    where
-        I: AsRef<str> + Send + Sync,
-    {
-        let key = Key::new(interface.name.as_ref(), path);
+    async fn delete_prop(&self, property: &PropertyInfo<'_>) -> Result<(), Self::Err> {
+        let key = Key::new(property.name, property.path);
 
         let mut store = self.store.write().await;
 
@@ -199,20 +184,17 @@ impl PropertyStore for MemoryStore {
         Ok(props)
     }
 
-    async fn interface_props<I>(
+    async fn interface_props(
         &self,
-        interface: &InterfaceInfo<I>,
-    ) -> Result<Vec<StoredProp>, Self::Err>
-    where
-        I: AsRef<str> + Send + Sync,
-    {
+        interface: &InterfaceInfo<'_>,
+    ) -> Result<Vec<StoredProp>, Self::Err> {
         Ok(self
             .store
             .read()
             .await
             .iter()
             .filter_map(|(k, v)| {
-                if k.interface == interface.name.as_ref() {
+                if k.interface == interface.name {
                     v.as_prop(k)
                 } else {
                     None
@@ -221,14 +203,11 @@ impl PropertyStore for MemoryStore {
             .collect())
     }
 
-    async fn delete_interface<I>(&self, interface: &InterfaceInfo<I>) -> Result<(), Self::Err>
-    where
-        I: AsRef<str> + Send + Sync,
-    {
+    async fn delete_interface(&self, interface: &InterfaceInfo<'_>) -> Result<(), Self::Err> {
         self.store
             .write()
             .await
-            .retain(|k, _v| k.interface != interface.name.as_ref());
+            .retain(|k, _v| k.interface != interface.name);
 
         Ok(())
     }

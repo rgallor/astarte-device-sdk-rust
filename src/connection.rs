@@ -33,6 +33,7 @@ use tokio::{
 use tracing::{debug, error, info, trace, warn};
 
 use crate::error::AggregateError;
+use crate::store::PropertyInfo;
 use crate::transport::TransportError;
 use crate::{
     builder::DEFAULT_CHANNEL_SIZE,
@@ -329,19 +330,20 @@ where
                 Ok(())
             }
             ClientMessage::Unset(data) => {
-                self.store.unset_prop(&data.interface, &data.path).await?;
+                let property_info = (&data).into();
+                self.store.unset_prop(&property_info).await?;
 
                 if self.status.is_connected() {
                     self.sender.unset(data.clone()).await?;
 
                     debug!(
                         "deleting property {}{} from store",
-                        data.interface.name, data.path
+                        data.interface, data.path
                     );
 
                     // TODO: this should be done when the package has been acknowledged, but it's hard
                     //       for the MQTT implementation at the moment so we delete it here to cleanup
-                    self.store.delete_prop(&data.interface, &data.path).await?;
+                    self.store.delete_prop(&property_info).await?;
                 }
 
                 Ok(())
@@ -897,7 +899,10 @@ impl<S, C> DeviceReceiver<S, C> {
             None => {
                 // Unset can only be received for a property
                 self.store
-                    .delete_prop(&interface.into(), path.as_str())
+                    .delete_prop(&PropertyInfo::new_unchecked(
+                        interface.into(),
+                        path.as_str(),
+                    ))
                     .await
                     .map_err(|err| TransportError::Transport(Error::Store(err)))?;
 

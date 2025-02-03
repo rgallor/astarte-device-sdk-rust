@@ -137,7 +137,7 @@ where
                         prop_if.version_major()
                     );
 
-                    self.store.delete_prop(&(&p).into(), &p.path).await?;
+                    self.store.delete_prop(&(&p).into()).await?;
 
                     Ok(None)
                 } else {
