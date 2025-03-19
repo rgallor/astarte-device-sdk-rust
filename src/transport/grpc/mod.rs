@@ -25,7 +25,7 @@
 //! receiving, and registering interfaces.
 
 pub mod convert;
-mod store;
+pub mod store;
 
 use std::borrow::Borrow;
 use std::collections::HashMap;
