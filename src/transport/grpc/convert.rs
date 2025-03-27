@@ -185,6 +185,19 @@ impl TryFrom<astarte_message_hub_proto::AstarteDatastreamInidividual> for Astart
     }
 }
 
+impl TryFrom<astarte_message_hub_proto::AstartePropertyIndividual> for AstarteType {
+    type Error = MessageHubProtoError;
+
+    fn try_from(
+        value: astarte_message_hub_proto::AstartePropertyIndividual,
+    ) -> Result<Self, Self::Error> {
+        value
+            .data
+            .ok_or(MessageHubProtoError::ExpectedField("data"))?
+            .try_into()
+    }
+}
+
 impl From<AstarteType> for astarte_message_hub_proto::AstarteData {
     fn from(value: AstarteType) -> Self {
         Self {

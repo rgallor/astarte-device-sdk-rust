@@ -32,11 +32,7 @@ description = "A library that provides communication and pairing primitives to a
 
 [workspace]
 resolver = "2"
-members = [
-  "astarte-device-sdk-derive",
-  "astarte-device-sdk-mock",
-  "e2e-test",
-]
+members = ["astarte-device-sdk-derive", "astarte-device-sdk-mock", "e2e-test"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -62,15 +58,27 @@ http = { workspace = true }
 itertools = { workspace = true }
 rand_core = { workspace = true, features = ["getrandom"] }
 # Use aws-lc-rs to support all PrivateKey types
-rcgen = { workspace = true, default-features = false, features = ["pem", "crypto", "aws_lc_rs"] }
-reqwest = { workspace = true, default-features = false, features = ["http2", "charset", "json", "rustls-tls-native-roots-no-provider"] }
+rcgen = { workspace = true, default-features = false, features = [
+  "pem",
+  "crypto",
+  "aws_lc_rs",
+] }
+reqwest = { workspace = true, default-features = false, features = [
+  "http2",
+  "charset",
+  "json",
+  "rustls-tls-native-roots-no-provider",
+] }
 rumqttc = { workspace = true, features = ["use-rustls"] }
 rusqlite = { workspace = true }
 rustls = { workspace = true }
 rustls-native-certs = { workspace = true }
 rustls-pemfile = { workspace = true }
 # Required by rumqttc even if not used
-rustls-webpki = { workspace = true, default-features = false, features = ["std", "aws_lc_rs"] }
+rustls-webpki = { workspace = true, default-features = false, features = [
+  "std",
+  "aws_lc_rs",
+] }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 sync_wrapper = { workspace = true }
@@ -119,7 +127,7 @@ rustc-args = ["--cfg=docsrs"]
 [workspace.dependencies]
 astarte-device-sdk = { path = "./", version = "=0.9.6" }
 astarte-device-sdk-derive = { version = "=0.9.6", path = "./astarte-device-sdk-derive" }
-astarte-message-hub-proto = { git = "https://github.com/astarte-platform/astarte-message-hub-proto", rev = "27f386114528ceeeb81440879f259146fbed6052" }
+astarte-message-hub-proto = { git = "https://github.com/rgallor/astarte-message-hub-proto.git", branch = "feat/property-conversion" }
 async-trait = "0.1.67"
 base64 = "0.22.0"
 bson = "2.7.0"
