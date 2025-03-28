@@ -26,7 +26,7 @@ use std::num::TryFromIntError;
 
 use astarte_message_hub_proto::message_hub_event::Event;
 use astarte_message_hub_proto::{astarte_message::Payload as ProtoPayload, pbjson_types};
-use astarte_message_hub_proto::{AstarteDatastreamInidividual, MessageHubEvent};
+use astarte_message_hub_proto::{AstarteDatastreamIndividual, MessageHubEvent};
 use chrono::TimeZone;
 use itertools::Itertools;
 
@@ -172,11 +172,11 @@ fn convert_timestamp(
         .ok_or_else(|| MessageHubProtoError::DateConversion(format!("{val:?}")))
 }
 
-impl TryFrom<astarte_message_hub_proto::AstarteDatastreamInidividual> for AstarteType {
+impl TryFrom<astarte_message_hub_proto::AstarteDatastreamIndividual> for AstarteType {
     type Error = MessageHubProtoError;
 
     fn try_from(
-        value: astarte_message_hub_proto::AstarteDatastreamInidividual,
+        value: astarte_message_hub_proto::AstarteDatastreamIndividual,
     ) -> Result<Self, Self::Error> {
         value
             .data
@@ -290,7 +290,7 @@ impl From<ValidatedIndividual> for astarte_message_hub_proto::AstarteMessage {
         let timestamp = value.timestamp.map(|t| t.into());
 
         let payload = Some(ProtoPayload::DatastreamIndividual(
-            AstarteDatastreamInidividual {
+            AstarteDatastreamIndividual {
                 data: Some(value.data.into()),
             },
         ));
@@ -375,7 +375,7 @@ impl TryFrom<ProtoPayload> for Value {
     type Error = MessageHubProtoError;
 
     fn try_from(value: ProtoPayload) -> Result<Self, Self::Error> {
-        use astarte_message_hub_proto::AstarteDatastreamInidividual;
+        use astarte_message_hub_proto::AstarteDatastreamIndividual;
         use astarte_message_hub_proto::AstartePropertyIndividual;
 
         match value {
@@ -384,7 +384,7 @@ impl TryFrom<ProtoPayload> for Value {
                 Ok(Value::Unset)
             }
             // Individual
-            ProtoPayload::DatastreamIndividual(AstarteDatastreamInidividual {
+            ProtoPayload::DatastreamIndividual(AstarteDatastreamIndividual {
                 data: Some(data),
             })
             | ProtoPayload::PropertyIndividual(AstartePropertyIndividual { data: Some(data) }) => {
@@ -393,7 +393,7 @@ impl TryFrom<ProtoPayload> for Value {
                 Ok(Value::Individual(value))
             }
             // Individual error case
-            ProtoPayload::DatastreamIndividual(AstarteDatastreamInidividual { data: None }) => {
+            ProtoPayload::DatastreamIndividual(AstarteDatastreamIndividual { data: None }) => {
                 Err(MessageHubProtoError::ExpectedField("data"))
             }
             // Object
@@ -425,7 +425,7 @@ impl From<Value> for ProtoPayload {
     fn from(value: Value) -> Self {
         match value {
             Value::Individual(val) => {
-                ProtoPayload::DatastreamIndividual(AstarteDatastreamInidividual {
+                ProtoPayload::DatastreamIndividual(AstarteDatastreamIndividual {
                     data: Some(val.into()),
                 })
             }
@@ -1210,7 +1210,7 @@ pub(crate) mod test {
         let astarte_sdk_type_double = AstarteType::Double(expected_double_value);
 
         let payload: ProtoPayload =
-            ProtoPayload::DatastreamIndividual(AstarteDatastreamInidividual {
+            ProtoPayload::DatastreamIndividual(AstarteDatastreamIndividual {
                 data: Some(astarte_sdk_type_double.into()),
             });
 
@@ -1229,7 +1229,7 @@ pub(crate) mod test {
         }
     }
 
-    fn take_individual(payload: ProtoPayload) -> Option<AstarteDatastreamInidividual> {
+    fn take_individual(payload: ProtoPayload) -> Option<AstarteDatastreamIndividual> {
         match payload {
             ProtoPayload::DatastreamIndividual(i) => Some(i),
             _ => None,
