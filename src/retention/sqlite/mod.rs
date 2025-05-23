@@ -273,17 +273,39 @@ impl StoredRetention for SqliteStore {
 
 #[cfg(test)]
 mod tests {
+    use std::num::NonZeroU64;
+
     use statements::tests::{fetch_mapping, fetch_publish};
 
-    use crate::retention::Context;
+    use crate::{builder::DEFAULT_STORE_CAPACITY, retention::Context};
 
     use super::*;
+
+    fn publish_with_expiry(millis: u64) -> PublishInfo<'static> {
+        let expiry = if millis == 0 {
+            None
+        } else {
+            Some(Duration::from_millis(millis))
+        };
+
+        PublishInfo::from_ref(
+            "com.Foo",
+            "/bar",
+            1,
+            Reliability::Unique,
+            crate::interface::Retention::Stored { expiry },
+            false,
+            &[],
+        )
+    }
 
     #[tokio::test]
     async fn should_store_publish() {
         let dir = tempfile::tempdir().unwrap();
 
-        let store = SqliteStore::connect(dir.path()).await.unwrap();
+        let store = SqliteStore::connect(dir.path(), DEFAULT_STORE_CAPACITY)
+            .await
+            .unwrap();
 
         let interface = "com.Foo";
         let path = "/bar";
@@ -329,10 +351,155 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn should_remove_expired_and_store_publish() {
+        let dir = tempfile::tempdir().unwrap();
+
+        // create a store which can only store 2 publishes.
+        // try storing 3 publishes: the newer one should replace the oldest one.
+        let capacity = NonZeroU64::new(2).unwrap();
+
+        let store = SqliteStore::connect(dir.path(), capacity).await.unwrap();
+
+        let interface = "com.Foo";
+        let path = "/bar";
+
+        let id1 = Context::new().next();
+        store
+            .store_publish(&id1, publish_with_expiry(0))
+            .await
+            .unwrap();
+
+        // sleep to ensure the publish is stored (since the id is computed from the current time)
+        tokio::time::sleep(Duration::from_millis(100)).await;
+
+        // this publish wil expire after 50ms, so it will be removed to insert the next one
+        let id2 = Context::new().next();
+        store
+            .store_publish(&id2, publish_with_expiry(50))
+            .await
+            .unwrap();
+
+        tokio::time::sleep(Duration::from_millis(100)).await;
+
+        // this will cause publish1 to be removed since the store is full
+        let id3 = Context::new().next();
+        store
+            .store_publish(&id3, publish_with_expiry(0))
+            .await
+            .unwrap();
+
+        let res = fetch_publish(&store, &id1).unwrap();
+
+        let publish1 = RetentionPublish {
+            id: id1,
+            interface: interface.into(),
+            path: path.into(),
+            payload: [].as_slice().into(),
+            sent: false,
+            expiry_time: None,
+        };
+
+        assert_eq!(res, publish1);
+
+        let res = fetch_publish(&store, &id2);
+        assert!(res.is_none());
+
+        let res = fetch_publish(&store, &id3).unwrap();
+
+        let publish3 = RetentionPublish {
+            id: id3,
+            interface: interface.into(),
+            path: path.into(),
+            payload: [].as_slice().into(),
+            sent: false,
+            expiry_time: None,
+        };
+
+        assert_eq!(res, publish3);
+    }
+
+    #[tokio::test]
+    async fn should_free_space_and_store_publish() {
+        let dir = tempfile::tempdir().unwrap();
+
+        // create a store which can only store 2 publishes.
+        // try storing 3 publishes: the newer one should replace the oldest one.
+        let capacity = NonZeroU64::new(2).unwrap();
+
+        let store = SqliteStore::connect(dir.path(), capacity).await.unwrap();
+
+        let interface = "com.Foo";
+        let path = "/bar";
+
+        // first publish to be inserted. This will be removed
+        let publish_info = PublishInfo::from_ref(
+            interface,
+            path,
+            1,
+            Reliability::Unique,
+            crate::interface::Retention::Stored { expiry: None },
+            false,
+            &[],
+        );
+
+        let id1 = Context::new().next();
+        store
+            .store_publish(&id1, publish_info.clone())
+            .await
+            .unwrap();
+
+        // sleep to ensure the publish is stored (since the id is computed from the current time)
+        tokio::time::sleep(Duration::from_millis(100)).await;
+
+        let id2 = Context::new().next();
+        store
+            .store_publish(&id2, publish_info.clone())
+            .await
+            .unwrap();
+
+        tokio::time::sleep(Duration::from_millis(100)).await;
+
+        // this will cause publish1 to be removed since the store is full
+        let id3 = Context::new().next();
+        store.store_publish(&id3, publish_info).await.unwrap();
+
+        let res = fetch_publish(&store, &id1);
+        assert!(res.is_none());
+
+        let res = fetch_publish(&store, &id2).unwrap();
+
+        let publish2 = RetentionPublish {
+            id: id2,
+            interface: interface.into(),
+            path: path.into(),
+            payload: [].as_slice().into(),
+            sent: false,
+            expiry_time: None,
+        };
+
+        assert_eq!(res, publish2);
+
+        let res = fetch_publish(&store, &id3).unwrap();
+
+        let publish3 = RetentionPublish {
+            id: id3,
+            interface: interface.into(),
+            path: path.into(),
+            payload: [].as_slice().into(),
+            sent: false,
+            expiry_time: None,
+        };
+
+        assert_eq!(res, publish3);
+    }
+
+    #[tokio::test]
     async fn should_mark_received() {
         let dir = tempfile::tempdir().unwrap();
 
-        let store = SqliteStore::connect(dir.path()).await.unwrap();
+        let store = SqliteStore::connect(dir.path(), DEFAULT_STORE_CAPACITY)
+            .await
+            .unwrap();
 
         let interface = "com.Foo";
         let path = "/bar";
@@ -374,7 +541,9 @@ mod tests {
     async fn should_fetch_all_interfaces() {
         let dir = tempfile::tempdir().unwrap();
 
-        let store = SqliteStore::connect(dir.path()).await.unwrap();
+        let store = SqliteStore::connect(dir.path(), DEFAULT_STORE_CAPACITY)
+            .await
+            .unwrap();
 
         let interface = "com.Foo";
         let path = "/bar";
@@ -408,7 +577,9 @@ mod tests {
     async fn should_mark_sent_and_reset() {
         let dir = tempfile::tempdir().unwrap();
 
-        let store = SqliteStore::connect(dir.path()).await.unwrap();
+        let store = SqliteStore::connect(dir.path(), DEFAULT_STORE_CAPACITY)
+            .await
+            .unwrap();
 
         let interface = "com.Foo";
         let path = "/bar";

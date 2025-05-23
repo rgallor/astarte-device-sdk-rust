@@ -251,6 +251,7 @@ mod tests {
 
     use super::*;
 
+    use crate::builder::DEFAULT_STORE_CAPACITY;
     use crate::client::tests::{mock_client, mock_client_with_store};
     use crate::interface::{Ownership, Reliability, Retention};
     use crate::interfaces::tests::{mock_validated_collection, mock_validated_interface};
@@ -433,7 +434,9 @@ mod tests {
     #[tokio::test]
     async fn add_interface_major_with_retention_stored() {
         let dir = TempDir::new().unwrap();
-        let store = SqliteStore::connect(dir.path()).await.unwrap();
+        let store = SqliteStore::connect(dir.path(), DEFAULT_STORE_CAPACITY)
+            .await
+            .unwrap();
 
         let (mut client, _tx) =
             mock_client_with_store(&[for_update::E2E_DEVICE_DATASTREAM_0_1], store);
@@ -545,7 +548,9 @@ mod tests {
     #[tokio::test]
     async fn extend_interfaces_major_with_retention_stored() {
         let dir = TempDir::new().unwrap();
-        let store = SqliteStore::connect(dir.path()).await.unwrap();
+        let store = SqliteStore::connect(dir.path(), DEFAULT_STORE_CAPACITY)
+            .await
+            .unwrap();
 
         let (mut client, _tx) =
             mock_client_with_store(&[for_update::E2E_DEVICE_DATASTREAM_0_1], store);
