@@ -136,10 +136,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        builder::DEFAULT_STORE_CAPACITY,
-        store::{memory::MemoryStore, tests::test_property_store, SqliteStore},
-    };
+    use crate::store::{memory::MemoryStore, tests::test_property_store, SqliteStore};
 
     #[tokio::test]
     async fn test_memory_wrapped() {
@@ -152,9 +149,7 @@ mod tests {
     async fn test_sqlite_wrapped() {
         let dir = tempfile::tempdir().unwrap();
 
-        let db = SqliteStore::connect(dir.as_ref(), DEFAULT_STORE_CAPACITY)
-            .await
-            .unwrap();
+        let db = SqliteStore::connect(dir.as_ref()).await.unwrap();
 
         test_property_store(db).await;
     }
