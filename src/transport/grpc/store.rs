@@ -101,6 +101,13 @@ impl StoreCapabilities for GrpcStore {
     fn get_retention(&self) -> Option<&Self::Retention> {
         None
     }
+
+    async fn set_retention_items(
+        &mut self,
+        _size: std::num::NonZeroUsize,
+    ) -> Result<(), crate::retention::RetentionError> {
+        Ok(())
+    }
 }
 
 /// We implement the PropertyStore to override the behavior when retrieving or storing

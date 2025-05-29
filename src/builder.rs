@@ -40,7 +40,6 @@ use crate::interfaces::Interfaces;
 use crate::introspection::AddInterfaceError;
 use crate::retention::memory::VolatileStore;
 use crate::retention::RetentionError;
-use crate::retention::StoredRetention;
 use crate::state::SharedState;
 use crate::store::sqlite::SqliteError;
 use crate::store::wrapper::StoreWrapper;
@@ -276,8 +275,7 @@ impl<C> DeviceBuilder<C, NoStore> {
 
         self = self.writable_dir(path)?;
 
-        let mut store = SqliteStore::connect(path).await?;
-        store.set_max_items(self.store_retention).await?;
+        let store = SqliteStore::connect(path).await?;
 
         Ok(self.store(store))
     }
@@ -376,8 +374,11 @@ where
 
         let state = Arc::new(SharedState::new(self.interfaces, volatile_store));
 
+        let mut store = self.store;
+        store.set_retention_items(self.store_retention).await?;
+
         let config = BuildConfig {
-            store: self.store,
+            store,
             channel_size: self.channel_size,
             writable_dir: self.writable_dir,
             state: Arc::clone(&state),

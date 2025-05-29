@@ -46,6 +46,13 @@ where
     fn get_retention(&self) -> Option<&Self::Retention> {
         self.store.get_retention()
     }
+
+    async fn set_retention_items(
+        &mut self,
+        size: std::num::NonZeroUsize,
+    ) -> Result<(), crate::retention::RetentionError> {
+        self.store.set_retention_items(size).await
+    }
 }
 
 impl<S> PropertyStore for StoreWrapper<S>

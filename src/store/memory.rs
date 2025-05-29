@@ -21,7 +21,7 @@
 use std::{collections::HashMap, fmt::Display, hash::Hash, sync::Arc};
 
 use tokio::sync::RwLock;
-use tracing::error;
+use tracing::{debug, error};
 
 use super::{
     OptStoredProp, PropertyInterface, PropertyMapping, PropertyStore, StoreCapabilities, StoredProp,
@@ -58,6 +58,15 @@ impl StoreCapabilities for MemoryStore {
 
     fn get_retention(&self) -> Option<&Self::Retention> {
         None
+    }
+
+    async fn set_retention_items(
+        &mut self,
+        _size: std::num::NonZeroUsize,
+    ) -> Result<(), crate::retention::RetentionError> {
+        debug!("ignore setting max retention items when using MemoryStore");
+
+        Ok(())
     }
 }
 

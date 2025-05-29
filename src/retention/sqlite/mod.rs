@@ -269,15 +269,6 @@ impl StoredRetention for SqliteStore {
         self.with_reader(|reader| reader.all_interfaces())
             .map_err(RetentionError::fetch_interfaces)
     }
-
-    async fn set_max_items(&mut self, size: std::num::NonZeroUsize) -> Result<(), RetentionError> {
-        let mut connection = self.writer.lock().await;
-
-        connection
-            .set_store_capacity(size)
-            .await
-            .map_err(|err| RetentionError::set_capacity(size.get(), err))
-    }
 }
 
 #[cfg(test)]
@@ -359,7 +350,7 @@ mod tests {
 
         // suppose we can only store 2 publishes and we try storing 3 publishes: the new one should replace the expired one
         let capacity = NonZeroUsize::new(2).unwrap();
-        store.set_max_items(capacity).await.unwrap();
+        store.set_retention_items(capacity).await.unwrap();
 
         let interface = "com.Foo";
 
@@ -427,7 +418,7 @@ mod tests {
         // create a store which can only store 2 publishes.
         // try storing 3 publishes: a new one should replace the oldest one.
         let capacity = NonZeroUsize::new(2).unwrap();
-        store.set_max_items(capacity).await.unwrap();
+        store.set_retention_items(capacity).await.unwrap();
 
         let interface = "com.Foo";
 

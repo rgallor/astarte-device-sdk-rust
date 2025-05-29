@@ -23,7 +23,7 @@ use std::{
     collections::HashSet,
     fmt::Display,
     future::Future,
-    num::{NonZeroUsize, TryFromIntError},
+    num::TryFromIntError,
     sync::atomic::{AtomicU32, Ordering},
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
@@ -305,12 +305,6 @@ pub trait StoredRetention: Clone + Send + Sync {
     fn fetch_all_interfaces(
         &self,
     ) -> impl Future<Output = Result<HashSet<StoredInterface>, RetentionError>> + Send;
-
-    /// Set the store size limit.
-    fn set_max_items(
-        &mut self,
-        size: NonZeroUsize,
-    ) -> impl Future<Output = Result<(), RetentionError>> + Send;
 }
 
 /// Interface and major version of a [`PublishInfo`] stored in the retention.
@@ -434,10 +428,6 @@ impl StoredRetention for Missing {
     }
 
     async fn fetch_all_interfaces(&self) -> Result<HashSet<StoredInterface>, RetentionError> {
-        unreachable!("the type is Un-constructable");
-    }
-
-    async fn set_max_items(&mut self, _size: NonZeroUsize) -> Result<(), RetentionError> {
         unreachable!("the type is Un-constructable");
     }
 }

@@ -34,6 +34,7 @@ use super::{
 };
 use crate::{
     interface::{MappingType, Ownership},
+    retention::RetentionError,
     transport::mqtt::payload::{Payload, PayloadError},
     types::{AstarteType, BsonConverter, TypeError},
 };
@@ -592,6 +593,18 @@ impl StoreCapabilities for SqliteStore {
 
     fn get_retention(&self) -> Option<&Self::Retention> {
         Some(self)
+    }
+
+    async fn set_retention_items(
+        &mut self,
+        size: std::num::NonZeroUsize,
+    ) -> Result<(), RetentionError> {
+        let mut connection = self.writer.lock().await;
+
+        connection
+            .set_store_capacity(size)
+            .await
+            .map_err(|err| RetentionError::set_capacity(size.get(), err))
     }
 }
 

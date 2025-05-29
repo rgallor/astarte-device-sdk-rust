@@ -18,7 +18,7 @@
 
 //! Provides functionality for instantiating an Astarte sqlite database.
 
-use std::{error::Error as StdError, fmt::Debug, future::Future, ops::Deref};
+use std::{error::Error as StdError, fmt::Debug, future::Future, num::NonZeroUsize, ops::Deref};
 
 pub use self::sqlite::SqliteStore;
 use crate::{
@@ -26,7 +26,7 @@ use crate::{
         reference::{MappingRef, PropertyRef},
         Ownership,
     },
-    retention::StoredRetention,
+    retention::{RetentionError, StoredRetention},
     types::AstarteType,
     validate::ValidatedUnset,
     Interface,
@@ -51,6 +51,12 @@ pub trait StoreCapabilities: PropertyStore {
 
     /// Returns the retention if the store supports it.
     fn get_retention(&self) -> Option<&Self::Retention>;
+
+    /// Set the mximum size of the retention store
+    fn set_retention_items(
+        &mut self,
+        size: NonZeroUsize,
+    ) -> impl Future<Output = Result<(), RetentionError>>;
 }
 
 /// Data passed to the store that identifies a property
