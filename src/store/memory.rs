@@ -56,7 +56,7 @@ impl MemoryStore {
 impl StoreCapabilities for MemoryStore {
     type Retention = Missing;
 
-    fn get_retention(&self) -> Option<&Self::Retention> {
+    fn get_retention(&mut self) -> Option<&mut Self::Retention> {
         None
     }
 }

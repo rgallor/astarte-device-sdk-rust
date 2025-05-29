@@ -98,7 +98,7 @@ impl From<tonic::Status> for GrpcStoreError {
 impl StoreCapabilities for GrpcStore {
     type Retention = Missing;
 
-    fn get_retention(&self) -> Option<&Self::Retention> {
+    fn get_retention(&mut self) -> Option<&mut Self::Retention> {
         None
     }
 }

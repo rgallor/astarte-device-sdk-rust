@@ -43,7 +43,7 @@ where
 {
     type Retention = S::Retention;
 
-    fn get_retention(&self) -> Option<&Self::Retention> {
+    fn get_retention(&mut self) -> Option<&mut Self::Retention> {
         self.store.get_retention()
     }
 }

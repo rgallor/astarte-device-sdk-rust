@@ -211,7 +211,7 @@ impl<S> MqttClient<S> {
             .map(drop)
     }
 
-    async fn mark_received(&self, id: &RetentionId) -> Result<(), Error>
+    async fn mark_received(&mut self, id: &RetentionId) -> Result<(), Error>
     where
         S: StoreCapabilities,
     {
@@ -229,7 +229,7 @@ impl<S> MqttClient<S> {
         Ok(())
     }
 
-    async fn mark_as_sent(&self, id: &RetentionId) -> Result<(), Error>
+    async fn mark_as_sent(&mut self, id: &RetentionId) -> Result<(), Error>
     where
         S: StoreCapabilities,
     {
@@ -590,7 +590,7 @@ impl<S> Mqtt<S> {
     /// Marks the packets as received for the retention.
     async fn mark_packet_received(
         volatile: &VolatileStore,
-        stored: &impl StoreCapabilities,
+        stored: &mut impl StoreCapabilities,
         res_id: Result<RetentionId, TokenError>,
     ) -> Result<(), RetentionError>
     where
@@ -636,7 +636,7 @@ impl<S> Mqtt<S> {
 
             match futures::future::select(self.retention.into_future(), &mut conn_future).await {
                 Either::Left((res, _)) => {
-                    Self::mark_packet_received(&self.state.volatile_store, &self.store, res)
+                    Self::mark_packet_received(&self.state.volatile_store, &mut self.store, res)
                         .await
                         .map_err(|err| TransportError::Transport(Error::Retention(err)))?;
                 }

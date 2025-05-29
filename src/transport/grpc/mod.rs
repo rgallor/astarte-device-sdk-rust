@@ -170,7 +170,7 @@ impl<S> GrpcClient<S> {
         }
     }
 
-    async fn mark_received(&self, id: &RetentionId) -> Result<(), Error>
+    async fn mark_received(&mut self, id: &RetentionId) -> Result<(), Error>
     where
         S: StoreCapabilities,
     {

@@ -368,13 +368,16 @@ where
 {
     /// Method that consumes the builder and returns a working [`DeviceClient`] and
     /// [`DeviceConnection`] with the specified settings.
-    pub async fn build(self) -> Result<BuildRes<C::Conn>, Error> {
+    pub async fn build(mut self) -> Result<BuildRes<C::Conn>, Error> {
         // We use the flume channel to have a cloneable receiver, see the comment on the DeviceClient for more information.
         let (tx_connection, rx_client) = flume::bounded(self.channel_size);
 
         let volatile_store = VolatileStore::with_capacity(self.volatile_retention);
 
         let state = Arc::new(SharedState::new(self.interfaces, volatile_store));
+
+        let retention = self.store.get_retention().unwrap();
+        retention.set_max_items(self.store_retention).await?;
 
         let config = BuildConfig {
             store: self.store,

@@ -47,7 +47,7 @@ where
     // given interface from each store.
     async fn cleanup_interface(
         volatile_store: &VolatileStore,
-        store: &StoreWrapper<C::Store>,
+        store: &mut StoreWrapper<C::Store>,
         interface: &Interface,
     ) {
         match interface.interface_type() {
@@ -113,7 +113,7 @@ where
         self.sender.add_interface(&interfaces, &to_add).await?;
 
         if to_add.is_major_change() {
-            Self::cleanup_interface(&self.state.volatile_store, &self.store, &to_add).await;
+            Self::cleanup_interface(&self.state.volatile_store, &mut self.store, &to_add).await;
         }
 
         interfaces.add(to_add);
@@ -146,7 +146,7 @@ where
             .filter(|interface| interface.is_major_change());
 
         for interface in major_changes {
-            Self::cleanup_interface(&self.state.volatile_store, &self.store, interface).await;
+            Self::cleanup_interface(&self.state.volatile_store, &mut self.store, interface).await;
         }
 
         let names = to_add.keys().cloned().collect();
@@ -195,7 +195,7 @@ where
 
         self.sender.remove_interface(&interfaces, to_remove).await?;
 
-        Self::cleanup_interface(&self.state.volatile_store, &self.store, to_remove).await;
+        Self::cleanup_interface(&self.state.volatile_store, &mut self.store, to_remove).await;
 
         interfaces.remove(interface_name);
 
@@ -231,7 +231,7 @@ where
             .await?;
 
         for interface in to_remove.values() {
-            Self::cleanup_interface(&self.state.volatile_store, &self.store, interface).await;
+            Self::cleanup_interface(&self.state.volatile_store, &mut self.store, interface).await;
         }
 
         let removed_names: Vec<String> = to_remove.keys().map(|k| k.to_string()).collect();

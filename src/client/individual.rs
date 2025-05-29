@@ -60,7 +60,7 @@ where
 
                 return Self::offline_send_individual(
                     &self.state,
-                    &self.store,
+                    &mut self.store,
                     &mut self.sender,
                     validated,
                 )
@@ -76,8 +76,13 @@ where
                 Self::send_volatile_individual(&self.state, &mut self.sender, validated).await
             }
             Retention::Stored { .. } => {
-                Self::send_stored_individual(&self.state, &self.store, &mut self.sender, validated)
-                    .await
+                Self::send_stored_individual(
+                    &self.state,
+                    &mut self.store,
+                    &mut self.sender,
+                    validated,
+                )
+                .await
             }
             Retention::Discard => self.sender.send_individual(validated).await,
         }
@@ -85,7 +90,7 @@ where
 
     async fn offline_send_individual(
         state: &SharedState,
-        store: &StoreWrapper<C::Store>,
+        store: &mut StoreWrapper<C::Store>,
         sender: &mut C::Sender,
         data: ValidatedIndividual,
     ) -> Result<(), Error>
@@ -139,7 +144,7 @@ where
 
     async fn send_stored_individual(
         state: &SharedState,
-        store: &StoreWrapper<C::Store>,
+        store: &mut StoreWrapper<C::Store>,
         sender: &mut C::Sender,
         data: ValidatedIndividual,
     ) -> Result<(), Error>

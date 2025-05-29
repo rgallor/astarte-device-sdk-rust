@@ -50,7 +50,7 @@ pub trait StoreCapabilities: PropertyStore {
     type Retention: StoredRetention;
 
     /// Returns the retention if the store supports it.
-    fn get_retention(&self) -> Option<&Self::Retention>;
+    fn get_retention(&mut self) -> Option<&mut Self::Retention>;
 }
 
 /// Data passed to the store that identifies a property

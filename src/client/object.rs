@@ -75,7 +75,7 @@ where
 
                 return Self::offline_send_object(
                     &self.state,
-                    &self.store,
+                    &mut self.store,
                     &mut self.sender,
                     validated,
                 )
@@ -91,7 +91,7 @@ where
                 Self::send_volatile_object(&self.state, &mut self.sender, validated).await
             }
             Retention::Stored { .. } => {
-                Self::send_stored_object(&self.state, &self.store, &mut self.sender, validated)
+                Self::send_stored_object(&self.state, &mut self.store, &mut self.sender, validated)
                     .await
             }
             Retention::Discard => self.sender.send_object(validated).await,
@@ -100,7 +100,7 @@ where
 
     async fn offline_send_object(
         state: &SharedState,
-        store: &StoreWrapper<C::Store>,
+        store: &mut StoreWrapper<C::Store>,
         sender: &mut C::Sender,
         data: ValidatedObject,
     ) -> Result<(), Error>
@@ -152,7 +152,7 @@ where
 
     async fn send_stored_object(
         state: &SharedState,
-        store: &StoreWrapper<C::Store>,
+        store: &mut StoreWrapper<C::Store>,
         sender: &mut C::Sender,
         data: ValidatedObject,
     ) -> Result<(), Error>

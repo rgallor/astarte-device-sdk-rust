@@ -590,7 +590,7 @@ impl SqliteStore {
 impl StoreCapabilities for SqliteStore {
     type Retention = Self;
 
-    fn get_retention(&self) -> Option<&Self::Retention> {
+    fn get_retention(&mut self) -> Option<&mut Self::Retention> {
         Some(self)
     }
 }
