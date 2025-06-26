@@ -220,10 +220,17 @@ where
     }
 
     async fn send_object(&mut self, data: ValidatedObject) -> Result<(), crate::Error> {
-        self.client
+        warn!("validated object: {data:#?}");
+
+        let res = self
+            .client
             .send(tonic::Request::new(data.into()))
             .await
-            .map_err(GrpcError::from)?;
+            .map_err(GrpcError::from);
+
+        if let Err(err) = res {
+            error!("ERROR WHEN SENDING: {err}");
+        }
 
         Ok(())
     }
