@@ -21,7 +21,7 @@
 use std::{future::Future, sync::Arc};
 
 use astarte_interfaces::{mapping::path::MappingPathError, MappingPath};
-use tracing::{error, trace};
+use tracing::{error, trace, warn};
 
 use crate::{
     aggregate::AstarteObject,
@@ -450,10 +450,15 @@ where
     }
 
     async fn recv(&self) -> Result<DeviceEvent, RecvError> {
-        self.rx
+        let event = self
+            .rx
             .recv_async()
             .await
-            .map_err(|_| RecvError::Disconnected)?
+            .map_err(|_| RecvError::Disconnected)?;
+
+        warn!("RECV EVENT: {event:?}");
+
+        event
     }
 }
 
